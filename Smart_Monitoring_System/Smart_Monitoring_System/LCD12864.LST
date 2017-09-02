@@ -1,0 +1,129 @@
+C51 COMPILER V9.52.0.0   LCD12864                                                          05/16/2015 07:36:40 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE LCD12864
+OBJECT MODULE PLACED IN LCD12864.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE LCD12864.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          /******************************************
+   2          **程序名称:LCD12864液晶屏显示
+   3          **程序功能：
+   4          **程序作者：李松泽
+   5          **创建时间 ：2014.4.4
+   6          **程序说明：
+   7          ******************************************/
+   8          #include <reg52.h>
+   9          #include "LCD12864.h"
+  10          #include "delay.h"
+  11          #define uchar unsigned char
+  12          #define uint  unsigned int       
+  13          sbit RS=P0^5;
+  14          sbit RW=P0^6;
+  15          sbit EN=P0^7;   //液晶的三个控制端 
+  16          
+  17          
+  18          /******************************************
+  19          **函数名称:void read_busy()
+  20          **功能描述：读忙标志 
+  21          **输入:
+  22          **输出：
+  23          **作者：李松泽
+  24          **说明:读忙标志 最高位为1则busy，不能进行读写操作 
+  25          ******************************************/
+  26          //void read_busy()
+  27          //{
+  28          //      RS=0;
+  29          //      RW=1;
+  30          //      EN=1;   //看时序 
+  31          //      while(P2 & 0x80); 
+  32          //      EN=0;
+  33          //}
+  34          /******************************************
+  35          **函数名称:void write_LCD_command(uchar value)
+  36          **功能描述：写命令函数
+  37          **输入:uchar value
+  38          **输出：
+  39          **作者：李松泽
+  40          **说明:
+  41          ******************************************/
+  42          void write_LCD_command(uchar value)
+  43          {
+  44   1              //read_busy();  //每次读写都要进行读忙标志 
+  45   1              RS=0;
+  46   1              RW=0;
+  47   1              delayus(200);
+  48   1              EN=1;           //EN从1--0锁存数据 
+  49   1              P2=value;
+  50   1              delayus(200);
+  51   1              EN=0;
+  52   1      }
+  53          /******************************************
+  54          **函数名称:void write_LCD_data(uchar value)
+  55          **功能描述：写数据函数 
+C51 COMPILER V9.52.0.0   LCD12864                                                          05/16/2015 07:36:40 PAGE 2   
+
+  56          **输入:uchar value
+  57          **输出：
+  58          **作者：李松泽
+  59          **说明:
+  60          ******************************************/
+  61          void write_LCD_data(uchar value)
+  62          {
+  63   1              //read_busy();
+  64   1              RS=1;
+  65   1              RW=0;
+  66   1              delayus(200);
+  67   1              EN=1;   
+  68   1              P2=value;
+  69   1              delayus(200);
+  70   1              EN=0;
+  71   1      }
+  72          
+  73          /******************************************
+  74          **函数名称:void init_LCD()
+  75          **功能描述：8位并口方式LCD1864初始化函数 
+  76          **输入:
+  77          **输出：
+  78          **作者：李松泽
+  79          **说明:
+  80          ******************************************/
+  81          void init_LCD() 
+  82          {
+  83   1              delayus(4000);                  //等待时间>40ms 
+  84   1              write_LCD_command(0x30);//功能设定：8位数据、基本指令操作 
+  85   1              delayus(100);                           //等待时间>100us 
+  86   1              write_LCD_command(0x30);//功能设定：8位数据、基本指令操作 
+  87   1              delayus(37);                            //等待时间>37us 
+  88   1              write_LCD_command(0x0C);//显示设定：整体显示、游标关、不反白 
+  89   1              delayus(100);                           // 等待时间>100us 
+  90   1              write_LCD_command(0x01);//清屏指令 
+  91   1              delayus(10000);                 //等待时间>10ms 
+  92   1              write_LCD_command(0x06);//进入点设定：地址指针加1 
+  93   1      }
+  94          void LCD_display(unsigned char add,char *hz)
+  95          {
+  96   1          write_LCD_command(add);
+  97   1          delayus(5);
+  98   1          while(*hz!='\0')
+  99   1          {
+ 100   2              write_LCD_data(*hz);
+ 101   2              hz++;
+ 102   2              delayus(100);
+ 103   2          }
+ 104   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    165    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       5
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

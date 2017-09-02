@@ -1,0 +1,12 @@
+"beep.obj",
+"delay.obj",
+"DHT11.obj",
+"ds18b20.obj",
+"LCD12864.obj",
+"keyscan.obj",
+"LCDMenu.obj",
+"main.obj",
+"GSM.obj",
+"ADC0832.obj" 
+TO "ÖÇÄÜ¼ì²âÏµÍ³" 
+RAMSIZE(256) 

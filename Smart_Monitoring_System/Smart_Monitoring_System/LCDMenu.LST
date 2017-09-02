@@ -1,0 +1,553 @@
+C51 COMPILER V9.52.0.0   LCDMENU                                                           05/16/2015 07:36:40 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE LCDMENU
+OBJECT MODULE PLACED IN LCDMenu.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE LCDMenu.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include "LCD12864.h"
+   3          #include "keyscan.h"
+   4          #include "LCDMenu.h"
+   5          #include "E2PROM.h"
+   6          #include "string.h"
+   7          #define uchar unsigned char
+   8          #define uint unsinged int
+   9          uchar func_index=0;
+  10          unsigned char Menu_flag = 0;
+  11          unsigned char backflag = 1;
+  12          unsigned char fun7_flag = 1;
+  13          unsigned char fun10_flag = 1;
+  14          unsigned char fun13_flag = 1;
+  15          unsigned char fun16_flag = 1;
+  16          unsigned char fun19_flag = 1;
+  17          unsigned char phoneMenu[13] = {0};
+  18          unsigned char TMenu[3] = {3,0};
+  19          unsigned char TMenu_lower[3] = {0,0};
+  20          unsigned char RMenu_lower[3] = {0,0};
+  21          unsigned char RMenu[3] = {6,0};
+  22          unsigned char FMenu[3] = {5,0};
+  23          unsigned char Message_zxh[] ="3108904105F0";
+  24          //unsigned char Message_zxh[13] ={0};
+  25          //unsigned char phoneMenu[13] = "18329979125F";
+  26          void (*current_operation_index)();
+  27          
+  28          typedef struct MENU
+  29                          {
+  30                                  unsigned char current;
+  31                                  unsigned char up;
+  32                                  unsigned char down;
+  33                                  unsigned char enter;
+  34                                  unsigned char back;
+  35                                  void (*current_operation)();
+  36                          }MENU;
+  37                          
+  38          MENU code table[23]=
+  39          {
+  40          {0,5,1,6,0,(*fun1)},  //第一层，显示 --菜单--、【设置手机号】、设置短信中心号、设置报警温度
+  41          {1,0,2,9,0,(*fun2)},  //第一层，显示 -- 菜单--、设置手机号、【设置短信中心号】、设置报警温度
+  42          {2,1,3,12,0,(*fun3)}, //第一层，显示 -- 菜单--、设置手机号、设置短信中心号、【设置报警温度】
+  43          {3,2,4,15,0,(*fun4)}, //第一层，显示 -- 菜单--、【设置报警湿度】、设置烟雾浓度、版本信息
+  44          {4,3,5,18,0,(*fun5)}, //第一层，显示 -- 菜单--、设置报警湿度、【设置烟雾浓度】、版本信息
+  45          {5,4,0,21,0,(*fun6)}, //第一层，显示 -- 菜单--、设置报警湿度、设置烟雾浓度、【版本信息】        
+  46          
+  47          {6,8,7,6,0,(*fun7)},  //第二层，显示 设置手机号、【请输入：】、确认、取消
+  48          {7,6,8,0,0,(*fun8)},  //第二层，显示 设置手机号、请输入：、【确认】、取消
+  49          {8,7,6,0,0,(*fun9)},  //第二层，显示 设置手机号、请输入：、确认、【取消】
+  50          
+  51          {9,11,10,9,1,(*fun10)},  //第二层，显示 设置短信中心号、【请输入：】、确认、取消
+  52          {10,9,11,1,1,(*fun11)}, //第二层，显示 设置短信中心号、请输入：、【确认】、取消
+  53          {11,10,9,1,1,(*fun12)}, //第二层，显示 设置短信中心号、请输入：、确认、【取消】
+  54          
+  55          
+C51 COMPILER V9.52.0.0   LCDMENU                                                           05/16/2015 07:36:40 PAGE 2   
+
+  56          {12,14,13,12,2,(*fun13)},  //第二层，显示 设置报警温度、【报警上限：】、（确认    取消）
+  57          {13,12,14,2,2,(*fun14)},  //第二层，显示 设置报警温度、报警上限：、 （【确取】   取消）
+  58          {14,13,12,2,2,(*fun15)}, //第二层，显示 设置报警温度、报警上限：、 （确认  【取消】）
+  59          
+  60          {15,17,16,15,3,(*fun16)}, //第二层，显示 设置报警湿度、【报警上限：】、报警下限
+  61          {16,15,17,3,3,(*fun17)}, //第二层，显示 设置报警湿度、报警上限： （【确取】   取消）
+  62          {17,16,15,3,3,(*fun18)},//第二层，显示 设置报警湿度、报警上限： （确认  【取消】）
+  63          
+  64          {18,20,19,18,4,(*fun19)}, //第二层，显示 设置报警烟雾浓度、【报警上限：】、报警下限
+  65          {19,18,20,4,4,(*fun20)}, //第二层，显示 设置报警烟雾浓度、报警上限：、报警下限  （【确取】   取消）
+  66          {20,19,18,4,4,(*fun21)},//第二层，显示 设置报警烟雾浓度、报警上限：、报警下限   （确认  【取消】）
+  67          
+  68          {21,21,21,21,5,(*fun22)} //第二层，显示 版本 v1.0  开发人员：李松泽  王树超   2015.4.6
+  69          //{19,100,100,100,(*fun20)}
+  70          };
+  71          
+  72          void fun1()
+  73          {
+  74   1              LCD_display(0x80,"----菜单管理----");
+  75   1              LCD_display(0x90,"->设置目标手机号");
+  76   1              LCD_display(0x88,"  设置短信中心号");
+  77   1              LCD_display(0x98,"  设置报警温度  ");
+  78   1              fun7_flag = 1;
+  79   1      }
+  80          void fun2()
+  81          {
+  82   1              LCD_display(0x80,"----菜单管理----");
+  83   1              LCD_display(0x90,"  设置目标手机号");
+  84   1              LCD_display(0x88,"->设置短信中心号");
+  85   1              LCD_display(0x98,"  设置报警温度  ");
+  86   1              
+  87   1      }
+  88          void fun3()
+  89          {
+  90   1              LCD_display(0x80,"----菜单管理----");
+  91   1              LCD_display(0x90,"  设置目标手机号");
+  92   1              LCD_display(0x88,"  设置短信中心号");
+  93   1              LCD_display(0x98,"->设置报警温度  ");
+  94   1      }
+  95          void fun4()
+  96          {
+  97   1              fun16_flag = 1;
+  98   1              LCD_display(0x80,"----菜单管理----");
+  99   1              LCD_display(0x90,"->设置报警湿度  ");
+ 100   1              LCD_display(0x88,"  设置烟雾浓度  ");
+ 101   1              LCD_display(0x98,"  版本信息      ");
+ 102   1      }
+ 103          void fun5()
+ 104          {
+ 105   1              LCD_display(0x80,"----菜单管理----");
+ 106   1              LCD_display(0x90,"  设置报警湿度  ");
+ 107   1              LCD_display(0x88,"->设置烟雾浓度  ");
+ 108   1              LCD_display(0x98,"  版本信息      ");
+ 109   1      }
+ 110          void fun6()
+ 111          {
+ 112   1              LCD_display(0x80,"----菜单管理----");
+ 113   1              LCD_display(0x90,"  设置报警湿度  ");
+ 114   1              LCD_display(0x88,"  设置烟雾浓度  ");
+ 115   1              LCD_display(0x98,"->版本信息      ");
+ 116   1      }
+ 117          
+C51 COMPILER V9.52.0.0   LCDMENU                                                           05/16/2015 07:36:40 PAGE 3   
+
+ 118          void fun7()
+ 119          {
+ 120   1              
+ 121   1              unsigned char count = 0;
+ 122   1              unsigned char keyfun7;
+ 123   1              LCD_display(0x80,"--设置手机号--  ");
+ 124   1              LCD_display(0x90,"->请输入：      ");
+ 125   1              LCD_display(0x88,"                ");
+ 126   1              LCD_display(0x98,"  确认    取消  ");
+ 127   1              
+ 128   1              while(1&fun7_flag)
+ 129   1              {
+ 130   2                      keyfun7 = keypro();
+ 131   2                      if(keyfun7 != 50)//说明此时有按键按下
+ 132   2                      {
+ 133   3                              if(count < 12)//输入12次
+ 134   3                              {
+ 135   4                                      if(count == 0)
+ 136   4                                              write_LCD_command(0x88);
+ 137   4                                              write_LCD_command(0x0f);
+ 138   4                                      switch(keyfun7)
+ 139   4                                      {
+ 140   5                                              case 0: phoneMenu[count] = '0';break;
+ 141   5                                              case 1: phoneMenu[count] = '1';break;
+ 142   5                                              case 2: phoneMenu[count] = '2';break;
+ 143   5                                              case 3: phoneMenu[count] = '3';break;
+ 144   5                                              case 4: phoneMenu[count] = '4';break;
+ 145   5                                              case 5: phoneMenu[count] = '5';break;
+ 146   5                                              case 6: phoneMenu[count] = '6';break;
+ 147   5                                              case 7: phoneMenu[count] = '7';break;
+ 148   5                                              case 8: phoneMenu[count] = '8';break;
+ 149   5                                              case 9: phoneMenu[count] = '9';break;
+ 150   5                                              case 13:phoneMenu[count] = 'F';break;
+ 151   5                                      }
+ 152   4                                      write_LCD_data(phoneMenu[count]);
+ 153   4                              }
+ 154   3                              
+ 155   3                              count++;
+ 156   3                              if((count >= 12)||(keyfun7 == 12)||(keyfun7 == 16))
+ 157   3                              {
+ 158   4                                      phoneMenu[count] = '\0';
+ 159   4                                      fun7_flag = 0;
+ 160   4                                      write_LCD_command(0x0c);
+ 161   4                                      break;
+ 162   4                              }       
+ 163   3                      }       
+ 164   2              }
+ 165   1      }
+ 166          void fun8()
+ 167          {
+ 168   1              LCD_display(0x80,"--设置手机号--  ");
+ 169   1              LCD_display(0x90,"  请输入：      ");
+ 170   1              LCD_display(0x88,phoneMenu);
+ 171   1              //LCD_display(0x88,"                ");
+ 172   1              LCD_display(0x98,"->确认    取消  ");
+ 173   1              fun7_flag = 1;
+ 174   1      }
+ 175          void fun9()
+ 176          {
+ 177   1              LCD_display(0x88,"                ");
+ 178   1              memset(phoneMenu,0,strlen(phoneMenu));
+ 179   1              LCD_display(0x80,"--设置手机号--  ");
+C51 COMPILER V9.52.0.0   LCDMENU                                                           05/16/2015 07:36:40 PAGE 4   
+
+ 180   1              LCD_display(0x90,"  请输入：      ");
+ 181   1              LCD_display(0x88,phoneMenu);
+ 182   1              LCD_display(0x98,"  确认  ->取消  ");
+ 183   1      }
+ 184          void fun10()
+ 185          {
+ 186   1              unsigned char count10 = 0;
+ 187   1              unsigned char keyfun10;
+ 188   1              unsigned char i;
+ 189   1              LCD_display(0x80,"  设置短信中心号");
+ 190   1              LCD_display(0x90,"->请输入：      ");
+ 191   1              LCD_display(0x88,"                ");
+ 192   1              LCD_display(0x98,"  确认    取消  ");
+ 193   1              
+ 194   1              while(1&fun10_flag)
+ 195   1              {
+ 196   2                      keyfun10 = keypro();
+ 197   2                      if(keyfun10 != 50)//说明此时有按键按下
+ 198   2                      {
+ 199   3                              if(count10 < 12)//输入12次
+ 200   3                              {
+ 201   4                                      if(count10 == 0)
+ 202   4                                              write_LCD_command(0x88);
+ 203   4                                              write_LCD_command(0x0f);
+ 204   4                                      switch(keyfun10)
+ 205   4                                      {
+ 206   5                                              case 0: Message_zxh[count10] = '0';break;
+ 207   5                                              case 1: Message_zxh[count10] = '1';break;
+ 208   5                                              case 2: Message_zxh[count10] = '2';break;
+ 209   5                                              case 3: Message_zxh[count10] = '3';break;
+ 210   5                                              case 4: Message_zxh[count10] = '4';break;
+ 211   5                                              case 5: Message_zxh[count10] = '5';break;
+ 212   5                                              case 6: Message_zxh[count10] = '6';break;
+ 213   5                                              case 7: Message_zxh[count10] = '7';break;
+ 214   5                                              case 8: Message_zxh[count10] = '8';break;
+ 215   5                                              case 9: Message_zxh[count10] = '9';break;
+ 216   5                                              case 13:Message_zxh[count10] = 'F';break;
+ 217   5                                      }
+ 218   4                                      write_LCD_data(Message_zxh[count10]);
+ 219   4                              }
+ 220   3                              
+ 221   3                              count10++;
+ 222   3                              if((count10 >= 12)||(keyfun10 == 12)||(keyfun10 == 16))
+ 223   3                              {
+ 224   4                                      phoneMenu[count10] = '\0';
+ 225   4                                      fun10_flag = 0;
+ 226   4                                      write_LCD_command(0x0c);
+ 227   4                                      for(i = 0; i < 6; i++)
+ 228   4                              {
+ 229   5                                              Message_zxh[2*i] ^= Message_zxh[2*i+1];
+ 230   5                                              Message_zxh[2*i+1] ^= Message_zxh[2*i];
+ 231   5                                              Message_zxh[2*i] ^= Message_zxh[2*i+1];
+ 232   5                              }  
+ 233   4                                      break;
+ 234   4                              }       
+ 235   3                      }       
+ 236   2              }
+ 237   1      }
+ 238          void fun11()
+ 239          {
+ 240   1              fun10_flag = 1;
+ 241   1      
+C51 COMPILER V9.52.0.0   LCDMENU                                                           05/16/2015 07:36:40 PAGE 5   
+
+ 242   1              LCD_display(0x80,"  设置短信中心号");
+ 243   1              LCD_display(0x90,"  请输入：      ");
+ 244   1              LCD_display(0x88,Message_zxh);
+ 245   1              LCD_display(0x98,"->确认    取消  ");
+ 246   1              
+ 247   1              
+ 248   1      }
+ 249          void fun12()
+ 250          {
+ 251   1              fun10_flag = 1;
+ 252   1              memset(Message_zxh,0,strlen(Message_zxh));
+ 253   1              LCD_display(0x88,"                ");
+ 254   1              LCD_display(0x80,"  设置短信中心号");
+ 255   1              LCD_display(0x90,"  请输入：      ");
+ 256   1              LCD_display(0x88,Message_zxh);
+ 257   1              LCD_display(0x98,"  确认  ->取消  ");
+ 258   1      }
+ 259          void fun13()
+ 260          {
+ 261   1              
+ 262   1              unsigned char count13 = 0;
+ 263   1              unsigned char keyfun13 = 0;
+ 264   1              
+ 265   1              LCD_display(0x80,"  设置报警温度  ");
+ 266   1              LCD_display(0x90,"->报警上限：    ");
+ 267   1              LCD_display(0x88,"                ");
+ 268   1              LCD_display(0x98,"  确认    取消  ");
+ 269   1              
+ 270   1              while(1&fun13_flag)
+ 271   1              {
+ 272   2                      keyfun13 = keypro();
+ 273   2                      if(keyfun13 != 50)//说明此时有按键按下
+ 274   2                      {
+ 275   3                              if(count13 < 2)//输入2次
+ 276   3                              {
+ 277   4                                      if(count13 == 0)
+ 278   4                                      {
+ 279   5                                              write_LCD_command(0x90+6);
+ 280   5                                              write_LCD_command(0x0f);
+ 281   5                                      }       
+ 282   4                                      switch(keyfun13)
+ 283   4                                      {
+ 284   5                                              case 0:TMenu[count13] = 0; break;
+ 285   5                                              case 1:TMenu[count13] = 1; break;
+ 286   5                                              case 2:TMenu[count13] = 2; break;
+ 287   5                                              case 3:TMenu[count13] = 3; break;
+ 288   5                                              case 4:TMenu[count13] = 4; break;
+ 289   5                                              case 5:TMenu[count13] = 5; break;
+ 290   5                                              case 6:TMenu[count13] = 6; break;
+ 291   5                                              case 7:TMenu[count13] = 7; break;
+ 292   5                                              case 8:TMenu[count13] = 8; break;
+ 293   5                                              case 9:TMenu[count13] = 9; break;
+ 294   5                                              default:break;
+ 295   5                                      }
+ 296   4                                      write_LCD_data(0x30+TMenu[count13]);
+ 297   4                                      
+ 298   4                              }
+ 299   3                              count13++;
+ 300   3                              if((count13 >= 2)||(keyfun13 == 12)||(keyfun13 == 16))
+ 301   3                              {
+ 302   4                                      fun13_flag = 0;
+ 303   4                                      write_LCD_command(0x0c);
+C51 COMPILER V9.52.0.0   LCDMENU                                                           05/16/2015 07:36:40 PAGE 6   
+
+ 304   4                                      break;
+ 305   4                              }       
+ 306   3                      }       
+ 307   2              }
+ 308   1      }
+ 309          
+ 310          void fun14()
+ 311          {
+ 312   1              fun13_flag = 1;
+ 313   1              LCD_display(0x80,"  设置报警温度  ");
+ 314   1              LCD_display(0x90,"  报警上限：");
+ 315   1              write_LCD_command(0x90+6);
+ 316   1              write_LCD_data(0x30+TMenu[0]);
+ 317   1              write_LCD_data(0x30+TMenu[1]);
+ 318   1              LCD_display(0x88,"                ");
+ 319   1              LCD_display(0x98,"->确认    取消  ");
+ 320   1      }
+ 321          
+ 322          void fun15()
+ 323          {
+ 324   1              fun13_flag = 1;
+ 325   1              TMenu[0] = 0;
+ 326   1              TMenu[1] = 0;
+ 327   1              LCD_display(0x80,"  设置报警温度  ");
+ 328   1              LCD_display(0x90,"  报警上限：");
+ 329   1              write_LCD_command(0x90+6);
+ 330   1              write_LCD_data(0x30+TMenu[0]);
+ 331   1              write_LCD_data(0x30+TMenu[1]);
+ 332   1              LCD_display(0x88,"                ");
+ 333   1              LCD_display(0x98,"  确认  ->取消  ");
+ 334   1      }
+ 335          
+ 336          void fun16()
+ 337          {
+ 338   1              unsigned char count16 = 0;
+ 339   1              unsigned char keyfun16 = 0;
+ 340   1              
+ 341   1              LCD_display(0x80,"  设置报警湿度  ");
+ 342   1              LCD_display(0x90,"->报警上限：    ");
+ 343   1              LCD_display(0x88,"                ");
+ 344   1              LCD_display(0x98,"  确认    取消  ");
+ 345   1              
+ 346   1              while(1&fun16_flag)
+ 347   1              {
+ 348   2                      keyfun16 = keypro();
+ 349   2                      if(keyfun16 != 50)//说明此时有按键按下
+ 350   2                      {
+ 351   3                              if(count16 < 2)//输入2次
+ 352   3                              {
+ 353   4                                      if(count16 == 0)
+ 354   4                                      {
+ 355   5                                              write_LCD_command(0x90+6);
+ 356   5                                              write_LCD_command(0x0f);
+ 357   5                                      }       
+ 358   4                                      switch(keyfun16)
+ 359   4                                      {
+ 360   5                                              case 0:RMenu[count16] = 0; break;
+ 361   5                                              case 1:RMenu[count16] = 1; break;
+ 362   5                                              case 2:RMenu[count16] = 2; break;
+ 363   5                                              case 3:RMenu[count16] = 3; break;
+ 364   5                                              case 4:RMenu[count16] = 4; break;
+ 365   5                                              case 5:RMenu[count16] = 5; break;
+C51 COMPILER V9.52.0.0   LCDMENU                                                           05/16/2015 07:36:40 PAGE 7   
+
+ 366   5                                              case 6:RMenu[count16] = 6; break;
+ 367   5                                              case 7:RMenu[count16] = 7; break;
+ 368   5                                              case 8:RMenu[count16] = 8; break;
+ 369   5                                              case 9:RMenu[count16] = 9; break;
+ 370   5                                              default:break;
+ 371   5                                      }
+ 372   4                                      write_LCD_data(0x30+RMenu[count16]);
+ 373   4                              }
+ 374   3                              count16++;
+ 375   3                              if((count16 >= 2)||(keyfun16 == 12)||(keyfun16 == 16))
+ 376   3                              {
+ 377   4                                      fun16_flag = 0;
+ 378   4                                      write_LCD_command(0x0c);
+ 379   4                                      break;
+ 380   4                              }       
+ 381   3                      }       
+ 382   2              }
+ 383   1              
+ 384   1      }
+ 385          
+ 386          void fun17()
+ 387          {
+ 388   1              fun16_flag = 1;
+ 389   1              LCD_display(0x80,"  设置报警湿度  ");
+ 390   1              LCD_display(0x90,"  报警上限：");
+ 391   1              write_LCD_command(0x90+6);
+ 392   1              write_LCD_data(0x30+RMenu[0]);
+ 393   1              write_LCD_data(0x30+RMenu[1]);
+ 394   1              LCD_display(0x88,"                ");
+ 395   1              LCD_display(0x98,"->确认    取消  ");   
+ 396   1      }
+ 397          
+ 398          void fun18()
+ 399          {
+ 400   1              fun16_flag = 1;
+ 401   1              RMenu[0] = 0;
+ 402   1              RMenu[1] = 0;
+ 403   1              LCD_display(0x80,"  设置报警湿度  ");
+ 404   1              LCD_display(0x90,"  报警上限：");
+ 405   1              write_LCD_command(0x90+6);
+ 406   1              write_LCD_data(0x30+RMenu[0]);
+ 407   1              write_LCD_data(0x30+RMenu[1]);
+ 408   1              LCD_display(0x88,"                ");
+ 409   1              LCD_display(0x98,"  确认  ->取消  ");
+ 410   1      }
+ 411          
+ 412          void fun19()
+ 413          {
+ 414   1              unsigned char count19 = 0;
+ 415   1              unsigned char keyfun19 = 0;
+ 416   1              
+ 417   1              LCD_display(0x80,"设置报警烟雾浓度");
+ 418   1              LCD_display(0x90,"->报警上限：    ");
+ 419   1              LCD_display(0x88,"                ");
+ 420   1              LCD_display(0x98,"  确认    取消  ");
+ 421   1              
+ 422   1              while(1&fun19_flag)
+ 423   1              {
+ 424   2                      keyfun19 = keypro();
+ 425   2                      if(keyfun19 != 50)//说明此时有按键按下
+ 426   2                      {
+ 427   3                              if(count19 < 2)//输入2次
+C51 COMPILER V9.52.0.0   LCDMENU                                                           05/16/2015 07:36:40 PAGE 8   
+
+ 428   3                              {
+ 429   4                                      if(count19 == 0)
+ 430   4                                      {
+ 431   5                                              write_LCD_command(0x90+6);
+ 432   5                                              write_LCD_command(0x0f);
+ 433   5                                      }       
+ 434   4                                      switch(keyfun19)
+ 435   4                                      {
+ 436   5                                              case 0:FMenu[count19] = 0; break;
+ 437   5                                              case 1:FMenu[count19] = 1; break;
+ 438   5                                              case 2:FMenu[count19] = 2; break;
+ 439   5                                              case 3:FMenu[count19] = 3; break;
+ 440   5                                              case 4:FMenu[count19] = 4; break;
+ 441   5                                              case 5:FMenu[count19] = 5; break;
+ 442   5                                              case 6:FMenu[count19] = 6; break;
+ 443   5                                              case 7:FMenu[count19] = 7; break;
+ 444   5                                              case 8:FMenu[count19] = 8; break;
+ 445   5                                              case 9:FMenu[count19] = 9; break;
+ 446   5                                              default:break;
+ 447   5                                      }
+ 448   4                                      write_LCD_data(0x30+FMenu[count19]);    
+ 449   4                              }
+ 450   3                              count19++;
+ 451   3                              if((count19 >= 2)||(keyfun19 == 12)||(keyfun19 == 16))
+ 452   3                              {
+ 453   4                                      fun19_flag = 0;
+ 454   4                                      write_LCD_command(0x0c);
+ 455   4                                      break;
+ 456   4                              }       
+ 457   3                      }       
+ 458   2              }
+ 459   1              
+ 460   1      }
+ 461          
+ 462          void fun20()
+ 463          {
+ 464   1              fun19_flag = 1;
+ 465   1              
+ 466   1              LCD_display(0x80,"设置报警烟雾浓度");
+ 467   1              LCD_display(0x90,"  报警上限：");
+ 468   1              write_LCD_command(0x90+6);
+ 469   1              write_LCD_data(0x30+FMenu[0]);
+ 470   1              write_LCD_data(0x30+FMenu[1]);
+ 471   1              LCD_display(0x88,"                ");
+ 472   1              LCD_display(0x98,"->确认    取消  ");
+ 473   1              
+ 474   1      }
+ 475          
+ 476          void fun21()
+ 477          {
+ 478   1              fun19_flag = 1;
+ 479   1              FMenu[0] = 0;
+ 480   1              FMenu[1] = 0;
+ 481   1              
+ 482   1              LCD_display(0x80,"设置报警烟雾浓度");
+ 483   1              LCD_display(0x90,"  报警上限：");
+ 484   1              write_LCD_command(0x90+6);
+ 485   1              write_LCD_data(0x30+FMenu[0]);
+ 486   1              write_LCD_data(0x30+FMenu[1]);
+ 487   1              LCD_display(0x88,"                ");
+ 488   1              LCD_display(0x98,"  确认  ->取消  ");   
+ 489   1      }
+C51 COMPILER V9.52.0.0   LCDMENU                                                           05/16/2015 07:36:40 PAGE 9   
+
+ 490          
+ 491          void fun22()
+ 492          {
+ 493   1              LCD_display(0x80,"----版本信息----");
+ 494   1              LCD_display(0x90,"      v1.0      ");
+ 495   1              LCD_display(0x88,"开发人员 :SONGZE");
+ 496   1              LCD_display(0x98,"王树超    张江锋");
+ 497   1              
+ 498   1      }
+ 499          
+ 500          void ManageMenu()
+ 501          {
+ 502   1              switch(keypro())
+ 503   1              {
+ 504   2                      case 10: func_index=table[func_index].up; break;
+ 505   2                      case 11: func_index=table[func_index].down; break;
+ 506   2                      case 12: func_index=table[func_index].enter; break;
+ 507   2                      case 16: func_index=table[func_index].back;break;
+ 508   2                      case 15: Menu_flag = 1;//退出菜单标志位
+ 509   2                      default: break;
+ 510   2              }
+ 511   1              
+ 512   1              current_operation_index=table[func_index].current_operation;
+ 513   1              (*current_operation_index)();
+ 514   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2587    ----
+   CONSTANT SIZE    =    639    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     52      10
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

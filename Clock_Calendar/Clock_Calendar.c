@@ -1,0 +1,440 @@
+**********************************************
+名称：基于AT89S52的lcd1602显示电子时钟+万年历
+编写：李松泽
+时间：2013.07.30
+**********************************************/
+#include<reg52.h>
+#define uchar unsigned char
+#define uint unsigned int
+uchar code table[]=" 2013-07-30 WED ";
+uchar code table1[]="    21:14:55";
+uchar code table2[]="     123456     ";
+uchar code table3[]="Made by Lisongze";
+uchar code table4[]="MONTUEWEDTHUFRISATSUN";
+uchar count,s1num;
+char miao,fen,shi,ri,yue;
+uint nian;
+sbit lcd_rs = P0^5;
+sbit lcd_rw = P0^6;
+sbit lcd_en = P0^7;
+sbit s1=P3^7;
+sbit s2=P3^6;
+sbit s3=P3^5;
+sbit g=P3^0;
+
+void delay(uint z)//延时子函数
+{
+	uint x,y;
+	for(x=z;x>0;x--)
+		for(y=110;y>0;y--);
+}
+void write_com(uchar com)//写命令函数
+{
+	lcd_rs = 0;
+	P2= com;
+	delay(5);
+	lcd_en=1;
+	delay(5);
+	lcd_en=0;
+}
+void write_date(uchar date)//写数据函数
+{
+	lcd_rs = 1;
+	P2= date;
+	delay(5);
+	lcd_en=1;
+	delay(5);
+	lcd_en=0;
+}
+void init()//初始化函数
+{
+	int num;
+	shi=21;
+	fen=14;
+	miao=55;
+	ri=30;
+	yue=7;
+	nian=2013;
+	lcd_en=0;
+	lcd_rw=0;
+	write_com(0x38);//显示设置模式
+	write_com(0x0c);//00001100开显示，不显示光标，光标不闪烁
+    write_com(0x06);//00000110地址指针加一，整屏不移动
+	write_com(0x01);//清屏
+	write_com(0x80);
+	for(num=0;num<16;num++)//显示数字579259
+	{
+		write_date(table2[num]);
+		delay(300);
+	}
+	write_com(0x80+0x40);
+	for(num=0;num<16;num++)//显示made by lisongze
+	{
+		write_date(table3[num]);
+		delay(300);	
+	}
+	delay(5000);
+	write_com(0x01);
+	write_com(0x80);
+	for(num=0;num<16;num++)//显示日期
+	{
+		write_date(table[num]);
+		delay(5);
+	}
+	write_com(0x80+0x40);
+	for(num=0;num<12;num++)//显示时间
+	{
+		write_date(table1[num]);
+		delay(5);
+	}
+	TMOD=0x01;//启动定时器中断
+	TH0=(65535-50000)/256;
+	TL0=(65535-50000)%256;
+	EA=1;
+	ET0=1;
+	TR0=1;//打开定时器
+}
+void write_sfm(uchar add,uchar date)//写时分秒函数
+{	
+	uchar shi,ge;
+	shi=date/10;
+	ge=date%10;
+	write_com(0x80+0x40+add);
+	write_date(0x30+shi);
+	write_date(0x30+ge);
+}
+void write_nyr(uint add,uint date)//写年月日函数，此处若用uchar范围只有0-255
+{								  //不够，改用uint(0-65535)
+	uint qian,bai,shi,ge;
+	qian=date/1000;
+	bai=date%1000/100;
+	shi=date%100/10;
+	ge=date%10;
+	write_com(0x80+add);
+	write_date(0x30+qian);
+	write_date(0x30+bai);
+	write_date(0x30+shi);
+	write_date(0x30+ge);
+}
+void write_yr(uchar add,uchar date)//写月日函数
+{	
+	uchar shi,ge;
+	shi=date/10;
+	ge=date%10;
+	write_com(0x80+add);
+	write_date(0x30+shi);
+	write_date(0x30+ge);
+}
+void keyscan()//按键扫描函数
+{
+	int m,n;
+	g=0;//将矩阵键盘当做独立键盘使用
+	if(s1==0)
+	{
+		delay(5);
+		if(s1==0)//按键1光标移位扫描
+		{
+			s1num++;
+			if(s1num==1)
+			{	while(!s1);//等待按键松手
+				write_com(0x80+0x40+10);
+				TR0=0;//关闭定时器
+				write_com(0x0f);
+			}
+			if(s1num==2)
+			{
+				while(!s1);
+				write_com(0x80+0x40+7);	
+			}
+			if(s1num==3)
+			{
+				while(!s1);
+				write_com(0x80+0x40+4);
+			}
+			if(s1num==4)
+			{
+				while(!s1);
+				write_com(0x80+3);	
+			}
+			if(s1num==5)
+			{
+				while(!s1);
+				write_com(0x80+6);
+			}
+			if(s1num==6)
+			{
+				while(!s1);
+				write_com(0x80+9);
+			}
+			if(s1num==7)
+			{
+				while(!s1)
+				write_com(0x80+13);
+			}
+			if(s1num==8)
+			{
+				while(!s1);
+				s1num=0;
+				write_com(0x0c);
+				TR0=1;//开定时器
+			}	
+		}
+	}
+	if(s1num!=0)
+	{	
+		if(s2==0)//按键2加功能
+		{
+			delay(5);
+			if(s2==0)
+			{
+				while(!s2);
+				if(s1num==1)//秒加
+				{
+					miao++;
+					if(miao==60)
+					{
+						miao=0;
+					}
+					write_sfm(10,miao);
+					write_com(0x80+0x40+10);			
+				}
+				if(s1num==2)//分加
+				{
+					fen++;
+					if(fen==60)
+					{
+						fen=0;
+					}
+					write_sfm(7,fen);
+					write_com(0x80+0x40+7);
+				}
+				if(s1num==3)//时加
+				{
+					shi++;
+					if(shi==24)
+					{
+						shi=0;	
+					}
+					write_sfm(4,shi);
+					write_com(0x80+0x40+4);
+				}
+				if(s1num==4)//年加
+				{
+					nian++;
+					if(nian==10000)
+					{
+						nian=2000;
+					}
+					write_nyr(1,nian);
+					write_com(0x80+3);
+				}
+				if(s1num==5)//月份加
+				{
+					yue++;
+					if(yue==13)
+					{
+						yue=1;
+					}
+					write_yr(6,yue);
+					write_com(0x80+6);
+				}
+				if(s1num==6)//日期加
+				{
+					ri++;
+					if(ri==29&&yue==2&&!((nian%4==0&&nian%100!=0)||nian%400==0))
+					{
+						ri=1;//平年
+					}
+					if(ri==30&&yue==2&&((nian%4==0&&nian%100!=0||nian%400==0)))
+					{
+						ri=1;//闰年
+					}
+					if(ri==31&&(yue==4||yue==6||yue==9||yue==11))
+					{
+						ri=1;
+					}
+					if(ri==32)
+					{
+						ri=1;
+					}
+					write_yr(9,ri);
+					write_com(0x80+9);
+				}
+				if(s1num==7)//星期加
+				{
+					m=m+3;
+					if(m==21)
+						m=0;
+					write_com(0x80+12);
+					for(n=m;n<m+3;n++)
+					{
+						write_date(table4[n]);
+						delay(5);
+					}
+					write_com(0x80+13);	
+				}
+			}
+		}
+		if(s3==0)//按键3减功能
+		{
+			delay(5);
+			if(s3==0)
+			{
+				while(!s3);
+				if(s1num==1)//秒减
+				{
+					miao--;
+					if(miao==-1)
+					{
+						miao=59;
+					}
+					write_sfm(10,miao);
+					write_com(0x80+0x40+10);
+				}
+				if(s1num==2)//分减
+				{
+					fen--;
+					if(fen==-1)
+					fen=59;
+					write_sfm(7,fen);
+					write_com(0x80+0x40+7);
+				}
+				if(s1num==3)//时减
+				{
+					shi--;
+					if(shi==-1)
+						shi=23;
+					write_sfm(4,shi);
+					write_com(0x80+0x40+4);
+				}
+				if(s1num==4)//年减
+				{
+					nian--;
+					if(nian==1999)
+						nian=2000;
+					write_nyr(1,nian);
+					write_com(0x80+3);
+				}
+				if(s1num==5)//月份减
+				{
+					yue--;
+					if(yue==0)
+						yue=12;
+					write_yr(6,yue);
+					write_com(0x80+6);	
+				}
+				if(s1num==6)//日减
+				{
+					ri--;
+					if(ri==0)
+					{
+						if(yue==2&&!((nian%4==0&&nian%100!=0)||nian%400==0))
+						{
+							ri=28;//平年
+						}
+						if(yue==2&&((nian%4==0&&nian%100!=0||nian%400==0)))
+						{
+							ri=29;//闰年
+						}
+						if(yue==4||yue==6||yue==9||yue==11)
+						{
+							ri=30;
+						}
+						if(yue==1||yue==3||yue==5||yue==7||yue==9||yue==11)
+							ri=31;
+					}
+					write_yr(9,ri);
+					write_com(0x80+9);
+				}
+				if(s1num==7)//星期减
+				{
+					m=m-3;
+					if(m==0)
+						m=21;
+					write_com(0x80+12);
+					for(n=m;n-3<m;n++)
+					{
+						write_date(table4[n-3]);
+						delay(5);
+					}
+					write_com(0x80+13);		
+				}
+			}
+		}
+	}
+}
+void main()
+{
+	int i,j;
+	init();
+	while(1)
+	{
+		keyscan();
+		if(count==18)
+		{	
+			count=0;
+			miao++;
+			if(miao==60)
+			{
+				miao=0;
+				fen++;
+				if(fen==60)
+				{
+					fen=0;
+					shi++;
+					if(shi==24)
+					{
+						shi=0;
+						ri++;
+						j=j+3;
+						if(j==21)
+							j=0;
+						write_com(0x80+12);
+						for(i=j;i<j+3;i++)
+						{
+							write_date(table4[i]);
+							delay(5);
+						}
+						if(ri==29&&yue==2&&!((nian%4==0&&nian%100!=0)||nian%400==0))
+						{
+							ri=1;yue++;//平年
+						}
+						if(ri==30&&yue==2&&((nian%4==0&&nian%100!=0||nian%400==0)))
+						{
+							ri=1;yue++;//闰年
+						}
+						if(ri==31&&(yue==4||yue==6||yue==9||yue==11))
+						{
+							ri=1;yue++;
+						}
+						if(ri==32)
+						{
+							ri=1;yue++;
+						}
+						if(yue==13)
+						{
+							yue=1;
+							nian++;
+							if(nian==10000)
+							{
+								nian=2000;
+							}
+							write_nyr(1,nian);
+						}
+						write_yr(6,yue);
+					}
+					write_yr(9,ri);
+					write_sfm(4,shi);
+				}
+				write_sfm(7,fen);	
+			}
+			write_sfm(10,miao);
+	     }
+	}			
+}
+void timer() interrupt 1
+{
+	TH0=(65535-50000)/256;
+	TL0=(65535-50000)%256;	
+	count++;
+}

@@ -1,0 +1,560 @@
+C51 COMPILER V9.52.0.0   GSM                                                               04/07/2015 12:38:13 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE GSM
+OBJECT MODULE PLACED IN GSM.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE GSM.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          /**************************************************
+   2          **ÎÄ¼þÃû³Æ£ºÍ¨¹ýTC35I½ÓÊÕÓ¢ÎÄ¶ÌÐÅ
+   3          **¹¦ÄÜÃèÊö:½ÓÊÕÓ¢ÎÄ¶ÌÐÅ²½Öè£º
+   4          **                          1.·¢ËÍATÖ¸Áî
+   5          **                          2.·¢ËÍAT+CPMS=\"MT\",\"MT\",\"MT\" ÉèÖÃËùÓÐ²Ù×÷¶¼ÔÚMT£¨Ä£¿éÖÕ¶Ë£©ÖÐ½øÐÐ
+   6          **                          3.·¢ËÍAT+CNMI=2£¬1ÉèÖÃµ±ÓÐÐÂ¶ÌÐÅµ½À´Ê±ÌáÊ¾
+   7          **                          4.·¢ËÍAT+CMGF=1,ÉèÖÃÎÄ±¾Ä£Ê½
+   8          **                          5.·¢ËÍAT+CMGD=1,É¾³ýµÚÒ»Ìõ¶ÌÐÅ
+   9          **                          6.ÅÐ¶Ï½ÓÊÕ×Ö·û´®ÖÐÊÇ·ñº¬ÓÐ¡°+CMTI¡±£¬º¬ÓÐ±íÊ¾ÓÐÐÂµÄ¶ÌÐÅ
+  10          **                          7.·¢ËÍAT+CMGR=1£¬ÉèÖÃ¶ÁÈ¡ÐÅÏ¢Ö¸Áî
+  11          **                          8.ÅÐ¶Ï½ÓÊÕÐÅÏ¢ÊÇ·ñÒ»ÖÂ£¬×ö³öÏàÓ¦²Ù×÷
+  12          **                          9.·¢ËÍAT+CMGD=1£¬É¾³ý¶ÁÈ¡ºóµÄÐÅÏ¢
+  13          **×÷Õß£ºÀîËÉÔó
+  14          **Ê±¼ä£º2014¡ª11-16
+  15          **************************************************/
+  16          #include <reg52.h>
+  17          #include <string.h>
+  18          #include "ds18b20.h"
+  19          #include "delay.h"
+  20          #include "LCD12864.h"
+  21          #include "DHT11.h"
+  22          #include "GSM.h"
+  23          #include "beep.h"
+  24          #define uchar unsigned char
+  25          #define uint unsigned int
+  26          /******************½ÓÊÕ¶ÌÐÅÖ¸Áî*****************************/
+  27          uchar code AT[]="AT\r";
+  28          uchar code CPMS[]={"AT+CPMS=\"MT\",\"MT\",\"MT\"\r"};
+  29          uchar code CNMI[]={"AT+CNMI=2,1\r"};
+  30          uchar code CMGF[]={"AT+CMGF=1\r"};
+  31          uchar code CMGR[]={"AT+CMGR=1\r"};
+  32          uchar code CMGD[]={"AT+CMGD=1\r"};
+  33          /********************·¢ËÍÖÐÎÄ¶ÌÐÅÖ¸Áî***********************/
+  34          uchar code MSXZ[]={"AT+CMGF=0\r"};//·¢ËÍÄ£Ê½Ñ¡Ôñ
+  35          uchar code MSCS[]={"AT+CSMP=17,167,0,8\r"} ;//ÉèÖÃPDUÄ£Ê½²ÎÊý£¬8±íÊ¾Unicode±àÂë
+  36          uchar code CSCS[]={"AT+CSCS=GSM\r"};
+  37          uchar code MBSJ[]={"AT+CMGS=54\r"};//ÊäÈëPDU³¤¶È
+  38          uchar code DXNR[]={"0891683108904105F011000B818123999721F50008A7"};//18329979125F   8123999721F5          
+             -    
+  39          uchar code MESS[]={"285F53524D68C06D4B73AF58836E295EA64E3AFF1A"};//µ±Ç°¼ì²â»·¾³ÎÂ¶ÈÎª£º25¶È  µÄPDU±àÂ
+  40          uchar code MESS3[]={"002C6E7F5EA64E3AFF1A"};
+  41          /**********************Êý×Ö0-9µÄ£Ð£Ä£Õ±àÂë****************************/
+  42          uchar code num0[]={"0030"};
+  43          uchar code num1[]={"0031"};
+  44          uchar code num2[]={"0032"};
+  45          uchar code num3[]={"0033"};
+  46          uchar code num4[]={"0034"};
+  47          uchar code num5[]={"0035"};
+  48          uchar code num6[]={"0036"};
+  49          uchar code num7[]={"0037"};
+  50          uchar code num8[]={"0038"};
+  51          uchar code num9[]={"0039"};
+  52          uchar code MESS1[]={"5EA6"};//¶ÈµÄ£Ð£Ä£Õ±àÂë
+  53          uchar Rec_Buf[40];
+  54          uchar i=0;
+C51 COMPILER V9.52.0.0   GSM                                                               04/07/2015 12:38:13 PAGE 2   
+
+  55          uint T_Value;
+  56          sbit led1=P0^0;
+  57          sbit led2=P0^1;
+  58          
+  59          /******************************************
+  60          **º¯ÊýÃû³Æ:void uart_int(void)
+  61          **¹¦ÄÜÃèÊö:´®¿Ú³õÊ¼»¯
+  62          **ÊäÈë:void
+  63          **Êä³ö:
+  64          ******************************************/
+  65          void serial_int(void)
+  66          {
+  67   1          SCON=0x50;//´®ÐÐ¿Ú¹¤×÷·½Ê½1£¬REN=1£¬ÔÊÐí´®ÐÐ¿Ú½ÓÊÕÊý¾Ý
+  68   1          PCON=0x00;//SMOD=0£»²¨ÌØÂÊ²»¼Ó±¶
+  69   1          TMOD|=0x20;//T1·½Ê½2
+  70   1          TH1=0xFD;//×°³õÖµ
+  71   1          TL1=0xFD;//×°³õÖµ
+  72   1          TR1=1;//Æô¶¯¶¨Ê±Æ÷1
+  73   1                ES=1;//¿ªÆô´®¿ÚÖÐ¶Ï
+  74   1                EA=1;//¿ªÆôÈ«¾ÖÖÐ¶Ï
+  75   1      }
+  76          /******************************************
+  77          **º¯ÊýÃû³Æ:void send(uchar *tab)
+  78          **¹¦ÄÜÃèÊö:·¢ËÍÖ¸ÁîÊý¾Ý
+  79          **ÊäÈë:uchar *tab
+  80          **Êä³ö:
+  81          ******************************************/
+  82          void send(uchar *tab)
+  83          {
+  84   1                ES=0;
+  85   1          while((*tab)!='\0')
+  86   1          {
+  87   2              SBUF=*tab;
+  88   2              while(TI==0);
+  89   2              TI=0;
+  90   2              tab++;
+  91   2          }
+  92   1                      ES=1;
+  93   1      }
+  94          /******************************************
+  95          **º¯ÊýÃû³Æ:void CLR_Buf()
+  96          **¹¦ÄÜÃèÊö:Çå³ý»º´æÊý¾Ý
+  97          **ÊäÈë:ÎÞ
+  98          **Êä³ö:
+  99          ******************************************/
+ 100          void CLR_Buf()
+ 101          {
+ 102   1          unsigned char k;
+ 103   1          for(k=0;k<40;k++)
+ 104   1          {
+ 105   2              Rec_Buf[k]=0;
+ 106   2          }
+ 107   1          i=0;
+ 108   1      }
+ 109          
+ 110          /******************************************
+ 111          **º¯ÊýÃû³Æ:bit hand(unsigned char *a)
+ 112          **¹¦ÄÜÃèÊö:ÅÐ¶Ï»º´æÖÐÊÇ·ñº¬ÓÐÖ¸¶¨µÄ×Ö·û´®
+ 113          **ÊäÈë:unsigned char *a
+ 114          **Êä³ö:bit 1¡ª¡ª¡ªº¬ÓÐ   0¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª²»º¬ÓÐ
+ 115          ******************************************/
+ 116          bit hand(unsigned char *a)
+C51 COMPILER V9.52.0.0   GSM                                                               04/07/2015 12:38:13 PAGE 3   
+
+ 117          {
+ 118   1          if(strstr(Rec_Buf,a)!=NULL)
+ 119   1                                return 1;
+ 120   1                      else
+ 121   1                              return 0;
+ 122   1      }
+ 123          
+ 124          /******************************************
+ 125          **º¯ÊýÃû³Æ:void Send_Value()
+ 126          **¹¦ÄÜÃèÊö:·¢ËÍ²É¼¯Êý¾Ý
+ 127          **ÊäÈë:
+ 128          **Êä³ö:
+ 129          ******************************************/
+ 130          void Send_Value()
+ 131          {
+ 132   1          uchar bai,shi;
+ 133   1                T_Value=read_ds18b20temp();
+ 134   1                bai=T_Value%1000/100;
+ 135   1                shi=T_Value%100/10;
+ 136   1                write_LCD_command(0x90);
+ 137   1                write_LCD_data('T');
+ 138   1                write_LCD_data(0x30+bai);
+ 139   1                write_LCD_data(0x30+shi);
+ 140   1                if(bai==0)
+ 141   1                      {
+ 142   2                              send(num0);
+ 143   2                              delayms(1000);
+ 144   2                      }
+ 145   1                        
+ 146   1                      if(bai==1)
+ 147   1                      {
+ 148   2                              send(num1);
+ 149   2                              delayms(1000);
+ 150   2                      }
+ 151   1                      if(bai==2)
+ 152   1                              {
+ 153   2                              send(num2);
+ 154   2                              delayms(1000);
+ 155   2                      }
+ 156   1                      if(bai==3)
+ 157   1                              {
+ 158   2                              send(num3);
+ 159   2                              delayms(1000);
+ 160   2                      }
+ 161   1                      if(bai==4)
+ 162   1                              {
+ 163   2                              send(num4);
+ 164   2                              delayms(1000);
+ 165   2                      }
+ 166   1                      if(bai==5)
+ 167   1                              {
+ 168   2                              send(num5);
+ 169   2                              delayms(1000);
+ 170   2                      }
+ 171   1                      if(bai==6)
+ 172   1                              {
+ 173   2                              send(num6);
+ 174   2                              delayms(1000);
+ 175   2                      }
+ 176   1                      if(bai==7)
+ 177   1                              {
+ 178   2                              send(num7);
+C51 COMPILER V9.52.0.0   GSM                                                               04/07/2015 12:38:13 PAGE 4   
+
+ 179   2                              delayms(1000);
+ 180   2                      }
+ 181   1                      if(bai==8)
+ 182   1                              {
+ 183   2                              send(num8);
+ 184   2                              delayms(1000);
+ 185   2                      }
+ 186   1                      if(bai==9)
+ 187   1                              {
+ 188   2                              send(num9);
+ 189   2                              delayms(1000);
+ 190   2                      }
+ 191   1                      
+ 192   1                      if(shi==0)
+ 193   1                              {
+ 194   2                              send(num0);
+ 195   2                              delayms(1000);
+ 196   2                      }
+ 197   1                      if(shi==1)
+ 198   1                              {
+ 199   2                              send(num1);
+ 200   2                              delayms(1000);
+ 201   2                      }
+ 202   1                      if(shi==2)
+ 203   1                              {
+ 204   2                              send(num2);
+ 205   2                              delayms(1000);
+ 206   2                      }
+ 207   1                      if(shi==3)
+ 208   1                              {
+ 209   2                              send(num3);
+ 210   2                              delayms(1000);
+ 211   2                      }
+ 212   1                      if(shi==4)
+ 213   1                              {
+ 214   2                              send(num4);
+ 215   2                              delayms(1000);
+ 216   2                      }
+ 217   1                      if(shi==5)
+ 218   1                              {
+ 219   2                              send(num5);
+ 220   2                              delayms(1000);
+ 221   2                      }
+ 222   1                      if(shi==6)
+ 223   1                              {
+ 224   2                              send(num6);
+ 225   2                              delayms(1000);
+ 226   2                      }
+ 227   1                      if(shi==7)
+ 228   1                              {
+ 229   2                              send(num7);
+ 230   2                              delayms(1000);
+ 231   2                      }
+ 232   1                      if(shi==8)
+ 233   1                              {
+ 234   2                              send(num8);
+ 235   2                              delayms(1000);
+ 236   2                      }
+ 237   1                      if(shi==9)
+ 238   1                              {
+ 239   2                              send(num9);
+ 240   2                              delayms(1000);
+C51 COMPILER V9.52.0.0   GSM                                                               04/07/2015 12:38:13 PAGE 5   
+
+ 241   2                      }
+ 242   1      }
+ 243          /******************************************
+ 244          **º¯ÊýÃû³Æ:void Send_Value()
+ 245          **¹¦ÄÜÃèÊö:·¢ËÍ²É¼¯Êª¶ÈÊý¾Ý
+ 246          **ÊäÈë:
+ 247          **Êä³ö:
+ 248          ******************************************/
+ 249          void Send_Wetness_Value()
+ 250          {
+ 251   1          uchar bai,shi;
+ 252   1              
+ 253   1                bai=RH_data/10%10;
+ 254   1                shi=RH_data%10;
+ 255   1                //bai=5;
+ 256   1                //shi=7;
+ 257   1                write_LCD_command(0x90+4);
+ 258   1                write_LCD_data('R');
+ 259   1                write_LCD_data(0x30+bai);
+ 260   1                write_LCD_data(0x30+shi);
+ 261   1                if(bai==0)
+ 262   1                      {
+ 263   2                              send(num0);
+ 264   2                              delayms(1000);
+ 265   2                      }
+ 266   1                        
+ 267   1                      if(bai==1)
+ 268   1                      {
+ 269   2                              send(num1);
+ 270   2                              delayms(1000);
+ 271   2                      }
+ 272   1                      if(bai==2)
+ 273   1                              {
+ 274   2                              send(num2);
+ 275   2                              delayms(1000);
+ 276   2                      }
+ 277   1                      if(bai==3)
+ 278   1                              {
+ 279   2                              send(num3);
+ 280   2                              delayms(1000);
+ 281   2                      }
+ 282   1                      if(bai==4)
+ 283   1                              {
+ 284   2                              send(num4);
+ 285   2                              delayms(1000);
+ 286   2                      }
+ 287   1                      if(bai==5)
+ 288   1                              {
+ 289   2                              send(num5);
+ 290   2                              delayms(1000);
+ 291   2                      }
+ 292   1                      if(bai==6)
+ 293   1                              {
+ 294   2                              send(num6);
+ 295   2                              delayms(1000);
+ 296   2                      }
+ 297   1                      if(bai==7)
+ 298   1                              {
+ 299   2                              send(num7);
+ 300   2                              delayms(1000);
+ 301   2                      }
+ 302   1                      if(bai==8)
+C51 COMPILER V9.52.0.0   GSM                                                               04/07/2015 12:38:13 PAGE 6   
+
+ 303   1                              {
+ 304   2                              send(num8);
+ 305   2                              delayms(1000);
+ 306   2                      }
+ 307   1                      if(bai==9)
+ 308   1                              {
+ 309   2                              send(num9);
+ 310   2                              delayms(1000);
+ 311   2                      }
+ 312   1                      
+ 313   1                      if(shi==0)
+ 314   1                              {
+ 315   2                              send(num0);
+ 316   2                              delayms(1000);
+ 317   2                      }
+ 318   1                      if(shi==1)
+ 319   1                              {
+ 320   2                              send(num1);
+ 321   2                              delayms(1000);
+ 322   2                      }
+ 323   1                      if(shi==2)
+ 324   1                              {
+ 325   2                              send(num2);
+ 326   2                              delayms(1000);
+ 327   2                      }
+ 328   1                      if(shi==3)
+ 329   1                              {
+ 330   2                              send(num3);
+ 331   2                              delayms(1000);
+ 332   2                      }
+ 333   1                      if(shi==4)
+ 334   1                              {
+ 335   2                              send(num4);
+ 336   2                              delayms(1000);
+ 337   2                      }
+ 338   1                      if(shi==5)
+ 339   1                              {
+ 340   2                              send(num5);
+ 341   2                              delayms(1000);
+ 342   2                      }
+ 343   1                      if(shi==6)
+ 344   1                              {
+ 345   2                              send(num6);
+ 346   2                              delayms(1000);
+ 347   2                      }
+ 348   1                      if(shi==7)
+ 349   1                              {
+ 350   2                              send(num7);
+ 351   2                              delayms(1000);
+ 352   2                      }
+ 353   1                      if(shi==8)
+ 354   1                              {
+ 355   2                              send(num8);
+ 356   2                              delayms(1000);
+ 357   2                      }
+ 358   1                      if(shi==9)
+ 359   1                              {
+ 360   2                              send(num9);
+ 361   2                              delayms(1000);
+ 362   2                      }
+ 363   1      }
+ 364          void Receive_Message_init()
+C51 COMPILER V9.52.0.0   GSM                                                               04/07/2015 12:38:13 PAGE 7   
+
+ 365          {
+ 366   1          serial_int();//´®¿Ú³õÊ¼»¯
+ 367   1                CLR_Buf();//Çå³ý»º´æÇø
+ 368   1                while(!hand("OK"))
+ 369   1                      {
+ 370   2              send(AT);       // ·¢ËÍATÖ¸Áî
+ 371   2              delayms(500);
+ 372   2                      }
+ 373   1                CLR_Buf();
+ 374   1                      //led1=0;
+ 375   1                      //delayms(1000);
+ 376   1          send(CPMS); //ÉèÖÃËùÓÐÄ£Ê½ÔÚMT£¨Ä£¿éÖÕ¶Ë£©ÖÐ½øÐÐ      
+ 377   1          delayms(500);
+ 378   1                      while(!hand("OK"));
+ 379   1                CLR_Buf();
+ 380   1                      //led2=0;
+ 381   1                      //delayms(1000);
+ 382   1          send(CNMI);  //ÉèÖÃµ±ÓÐÐÂµÄ¶ÌÐÅÀ´Ê±ÌáÊ¾     
+ 383   1          delayms(500);
+ 384   1                      while(!hand("OK"));
+ 385   1                CLR_Buf();
+ 386   1                      //led1=1;
+ 387   1                      //delayms(1000);
+ 388   1                send(CMGF);//ÉèÖÃÎªÎÄ±¾Ä£Ê½       
+ 389   1          delayms(500);
+ 390   1                      while(!hand("OK"));
+ 391   1                CLR_Buf();
+ 392   1                      //led2=1;
+ 393   1                      //delayms(1000);
+ 394   1                send(CMGD); //É¾³ýµÚÒ»Ìõ¶ÌÐÅ      
+ 395   1          delayms(500);
+ 396   1                      while(!hand("OK"));
+ 397   1                CLR_Buf();
+ 398   1                      //led1=0;
+ 399   1                      //delayms(500);
+ 400   1                      LCD_display(0x90,"½ÓÊÕ¶ÌÐÅWaiting");
+ 401   1                      di();
+ 402   1                      di();
+ 403   1                      di();
+ 404   1                      di();
+ 405   1      }
+ 406          /******************************************
+ 407          **º¯ÊýÃû³Æ:void Send_Message()
+ 408          **¹¦ÄÜÃèÊö:·¢ËÍÖÐÎÄ¶ÌÐÅ
+ 409          **ÊäÈë:
+ 410          **Êä³ö:
+ 411          ******************************************/
+ 412          void Send_Message()
+ 413          {
+ 414   1                LCD_display(0x90,"                ");
+ 415   1                LCD_display(0x88,"·¢ËÍ¶ÌÐÅÖÐ...");
+ 416   1          send(AT);       // 1.·¢ËÍATÖ¸Áî
+ 417   1          delayms(500);
+ 418   1          send(MSXZ);     //·¢ËÍ¶ÌÐÅÄ£Ê½Ñ¡Ôñ£¬2.·¢ËÍAT+CMGF=0  ÉèÖÃPDUÄ£Ê½
+ 419   1          delayms(500);
+ 420   1                led1 =0;
+ 421   1          send(MSCS);     //3.·¢ËÍAT+CSMP=17¡¢167¡¢0¡¢8ÉèÖÃPDUÄ£Ê½²ÎÊý
+ 422   1          delayms(500);
+ 423   1          send(CSCS);     //4.·¢ËÍAT+CSCS=GSM ÉèÖÃGSM×Ö·û¼¯
+ 424   1          delayms(500);
+ 425   1                led2=0;
+ 426   1          send(MBSJ);// 5.·¢ËÍAT+CMGS=40 ÊäÈëPDU³¤¶È
+C51 COMPILER V9.52.0.0   GSM                                                               04/07/2015 12:38:13 PAGE 8   
+
+ 427   1          delayms(500);
+ 428   1          send(DXNR);//·¢ËÍ¶ÌÐÅÕýÎÄ,6.·¢ËÍ¶ÌÐÅÄÚÈÝ£¬´ËÉèÖÃÏÂÖ»ÄÜ·¢ËÍÖÐÎÄ
+ 429   1          send(MESS);
+ 430   1                Send_Value();
+ 431   1                led1=1;
+ 432   1                send(MESS1);
+ 433   1                delayms(500);
+ 434   1                send(MESS3);
+ 435   1                Send_Wetness_Value();
+ 436   1                led2=1;
+ 437   1          delayms(500);
+ 438   1          SBUF=0x1A;
+ 439   1          //while(TI==0);//Èç¹ûTI=0£»Î´·¢ËÍÍê¡£Ñ­»·µÈ´ý
+ 440   1          //TI=0;//ÒÑ·¢ËÍÍê¡£TIÇåÁã
+ 441   1                      di();
+ 442   1                      di();
+ 443   1                      LCD_display(0x90,"                ");
+ 444   1                      LCD_display(0x88,"                ");
+ 445   1                      Receive_Message_init();
+ 446   1      }
+ 447          
+ 448          /******************************************
+ 449          **º¯ÊýÃû³Æ:void Receive_Message()
+ 450          **¹¦ÄÜÃèÊö:½ÓÊÕÐÅÏ¢²¢½øÐÐÊý¾Ý´¦Àí
+ 451          **ÊäÈë:
+ 452          **Êä³ö:
+ 453          ******************************************/
+ 454          void Receive_Message()
+ 455          {
+ 456   1                uint j;
+ 457   1         // n=read_ds18b20temp();
+ 458   1                //write_LCD_command(0x88);
+ 459   1                //write_LCD_data('T');
+ 460   1                //write_LCD_data(0x30+n%1000/100);
+ 461   1                //write_LCD_data(0x30+n%100/10);
+ 462   1                      if(strstr(Rec_Buf,"+CMTI")!=NULL)//Èô»º´æ×Ö·û´®ÖÐº¬ÓÐ ¡°+CMTI¡° ¾Í±íÊ¾ÓÐÐÂµÄ¶ÌÐÅ
+ 463   1          {
+ 464   2              CLR_Buf();
+ 465   2                                delayms(1000);
+ 466   2                                      send(CMGR);//¶ÁÈ¡ÐÅÏ¢
+ 467   2              delayms(1000);
+ 468   2              if(strstr(Rec_Buf,"report")!=NULL)//Èç¹ûÐÅÏ¢ÄÚÈÝÎªopen
+ 469   2                                      {
+ 470   3                  //LCD_display(0x90,"·¢ËÍ¶ÌÐÅÖÐ");
+ 471   3                                                for(j=0;j<8;j++)
+ 472   3                                                {
+ 473   4                                                    led1=0;
+ 474   4                                                    delayms(500);
+ 475   4                                              led1=1;
+ 476   4                                              delayms(500);
+ 477   4                                                }
+ 478   3                  Send_Message();
+ 479   3                                      }
+ 480   2                                      if(strstr(Rec_Buf,"openled")!=NULL)//Èç¹ûÐÅÏ¢ÄÚÈÝÎªopen
+ 481   2                                      {
+ 482   3                  LED_3W_OPEN();
+ 483   3                                      }
+ 484   2                                      if(strstr(Rec_Buf,"closeled")!=NULL)//Èç¹ûÐÅÏ¢ÄÚÈÝÎªopen
+ 485   2                                      {
+ 486   3                  LED_3W_CLOSE();
+ 487   3                                      }
+ 488   2              CLR_Buf();
+C51 COMPILER V9.52.0.0   GSM                                                               04/07/2015 12:38:13 PAGE 9   
+
+ 489   2              delayms(500);
+ 490   2              send(CMGD);
+ 491   2                                while(!hand("OK")); 
+ 492   2                    CLR_Buf();
+ 493   2              Receive_Message_init();                         
+ 494   2          }                                   
+ 495   1              
+ 496   1      }
+ 497          /******************************************
+ 498          **º¯ÊýÃû³Æ:void serial()
+ 499          **¹¦ÄÜÃèÊö:´®¿ÚÖÐ¶Ï´¦Àí
+ 500          **ÊäÈë:
+ 501          **Êä³ö:
+ 502          ******************************************/
+ 503          void serial()interrupt 4
+ 504          {
+ 505   1          ES=0;
+ 506   1                if(TI)
+ 507   1                      {
+ 508   2              TI=0;
+ 509   2          }
+ 510   1                      if(RI)
+ 511   1                      {
+ 512   2              RI=0;
+ 513   2                                Rec_Buf[i]=SBUF;
+ 514   2                          i++;
+ 515   2                                if(i>40)
+ 516   2                                    i=0;
+ 517   2                                ES=1;
+ 518   2          }
+ 519   1      }
+ 520          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1645    ----
+   CONSTANT SIZE    =    374    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     43       9
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

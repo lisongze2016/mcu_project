@@ -1,0 +1,138 @@
+C51 COMPILER V9.52.0.0   DHT11                                                             04/07/2015 12:38:13 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE DHT11
+OBJECT MODULE PLACED IN DHT11.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE DHT11.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          
+   2          
+   3          /****************************************
+   4          DHT11温湿度传感器
+   5          DHT=P3^7；数据输入IO口
+   6          时间 2013.4.13
+   7          ****************************************/
+   8          
+   9          #include <reg52.h>
+  10          #include "DHT11.h"
+  11          #include "LCD12864.h"
+  12          #define uchar unsigned char
+  13          #define uint unsigned int
+  14          
+  15          sbit DHT=P1^1;
+  16          uchar flag,temp;
+  17          uchar RH,RL,TH,TL,CK;
+  18          uchar RH_data,RL_data,TH_data,TL_data,CK_data;
+  19          
+  20          /*void delay_us(unsigned int i)
+  21          {
+  22              while(i--);
+  23          }*/
+  24          /************************
+  25          约8-10us延迟函数
+  26          ***********************/
+  27          void delay_us()
+  28          {
+  29   1              uchar i;
+  30   1              i--;
+  31   1              i--;
+  32   1              i--;
+  33   1              i--;
+  34   1              i--;
+  35   1              i--;
+  36   1      }
+  37          /*****************************
+  38          1ms延迟函数
+  39          *****************************/
+  40          void delay_ms(uint t)
+  41          {
+  42   1               uchar i;
+  43   1               while(t--)
+  44   1               for(i=0;i<125;i++);
+  45   1      }
+  46          
+  47          /************************************
+  48          检测DHT11读回来的数据
+  49          *************************************/
+  50          uchar read_byte()
+  51          {
+  52   1              uchar i,dat;
+  53   1              for(i=0;i<8;i++)
+  54   1              {
+  55   2                          flag=2;
+C51 COMPILER V9.52.0.0   DHT11                                                             04/07/2015 12:38:13 PAGE 2   
+
+  56   2                              while((DHT==0)&&flag++);
+  57   2                              delay_us();
+  58   2                              delay_us();
+  59   2                              delay_us();                       //大概30us
+  60   2                              if(DHT==1)                                
+  61   2                              {
+  62   3                                      temp=1;
+  63   3                                      flag=2;
+  64   3                                      while((DHT==1)&&flag++);
+  65   3                              }
+  66   2                              else
+  67   2                                      temp=0;
+  68   2                                      dat<<=1;
+  69   2                                      dat|=temp;              
+  70   2              }
+  71   1              return dat;
+  72   1      }
+  73          /************************************
+  74          复位和响应函数
+  75          *************************************/
+  76          void init_DHT11()
+  77          {
+  78   1              DHT=0;
+  79   1              delay_ms(20);    //约20ms
+  80   1              DHT=1;                   //拉高30us
+  81   1              delay_us();
+  82   1              delay_us();
+  83   1              delay_us();
+  84   1              DHT=1;
+  85   1              if(DHT==0)
+  86   1              {
+  87   2                      flag=2;
+  88   2                      while((DHT==0)&&flag++);
+  89   2                      flag=2;
+  90   2                      while((DHT==1)&&flag++);
+  91   2                      RH=read_byte();            //湿度整数部分
+  92   2                      RL=read_byte();            //湿度小数部分
+  93   2                      TH=read_byte();            //温度整数部分
+  94   2                      TL=read_byte();            //温度小数部分
+  95   2                      CK=read_byte();            //校验码
+  96   2                      DHT=1;                             //传送完拉高总线
+  97   2                      CK_data=(RH+RL+TH+TL); //检测校验码是否正确
+  98   2                      if(CK==CK_data)            //如果正确 继续下一步处理
+  99   2                      {
+ 100   3                              RH_data=RH;
+ 101   3                              RL_data=RL;
+ 102   3                              TH_data=TH;
+ 103   3                              TL_data=TL;
+ 104   3                              CK_data=CK;
+ 105   3                      }
+ 106   2              }
+ 107   1                write_LCD_command(0x98+7);
+ 108   1                //write_LCD_data('R');
+ 109   1                write_LCD_data(0x30+RH_data/10%10);
+ 110   1                write_LCD_data(0x30+RH_data%10);
+ 111   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    238    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+C51 COMPILER V9.52.0.0   DHT11                                                             04/07/2015 12:38:13 PAGE 3   
+
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     12       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

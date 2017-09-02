@@ -1,0 +1,65 @@
+C51 COMPILER V9.52.0.0   E2PROM                                                            05/10/2015 20:54:06 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE E2PROM
+OBJECT MODULE PLACED IN E2PROM.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE E2PROM.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "I2C.h"
+   2          #include "E2PROM.h"
+   3          
+   4          /*********************************************
+   5          **函数功能：向任意地址写入数据
+   6          **输入：unsigned char add 写入数据的地址（0x00—0xFF ） 
+   7          **      unsigned char dat 写入具体的数据值
+   8          **输出：void
+   9          *********************************************/
+  10          void Write_E2PROM_Add(unsigned char add,unsigned char dat)
+  11          {
+  12   1              I2C_start();
+  13   1              WriteByte(0xa0);//发送从设备地址
+  14   1              response();//等待从设备响应
+  15   1              WriteByte(add);//发送芯片内地址
+  16   1              response();//等待从设备响应
+  17   1              WriteByte(dat);//发送数据
+  18   1              response();//等待从设备响应
+  19   1              I2C_stop();
+  20   1      }
+  21          
+  22          /***********************************************
+  23          **函数功能：读出该地址存储的数据值
+  24          **输入：unsigned char add 读数据的地址
+  25          **输出：dat 该地址的存储的数据值
+  26          ***********************************************/
+  27          unsigned char Read_E2PROM_Add(unsigned char add)
+  28          {
+  29   1              unsigned char dat;
+  30   1              I2C_start();
+  31   1              WriteByte(0xa0);//发送从设备地址 写操作
+  32   1              response();//等待从设备响应
+  33   1              WriteByte(add);//发送芯片内地址
+  34   1              response();//等待从设备响应
+  35   1              I2C_start();
+  36   1              WriteByte(0xa1);//发送从设备地址 读操作
+  37   1              response();//等待从设备响应
+  38   1              dat = ReadByte();//获取数据
+  39   1              noresponse();
+  40   1              I2C_stop();     
+  41   1              return dat;
+  42   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     80    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       4
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

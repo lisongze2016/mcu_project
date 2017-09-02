@@ -1,0 +1,153 @@
+C51 COMPILER V9.52.0.0   I2C                                                               05/10/2015 20:54:06 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE I2C
+OBJECT MODULE PLACED IN I2C.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE I2C.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include "I2C.h"
+   3          #include "delay.h"
+   4          
+   5          sbit SCL = P0^2;
+   6          sbit SDA = P0^3;
+   7          /**************************************
+   8          **函数功能：总线初始化
+   9          **输入：void
+  10          **输出：void
+  11          **************************************/
+  12          void I2C_init()
+  13          {
+  14   1              SCL = 1;
+  15   1              delayus(5);
+  16   1              SDA = 1;
+  17   1              delayus(5);
+  18   1      }
+  19          
+  20          /*************************************
+  21          **函数功能：起始信号
+  22          **输入：void
+  23          **输出：void
+  24          *************************************/
+  25          void I2C_start()
+  26          {
+  27   1              SDA = 1;
+  28   1              SCL = 1;
+  29   1              delayus(5);//延时大于4.7us
+  30   1              SDA = 0;
+  31   1              delayus(5);//延时大于4us
+  32   1              SCL = 0;
+  33   1      }
+  34          
+  35          /*************************************
+  36          **函数功能：应答信号
+  37          **输入：void
+  38          **输出：void
+  39          **************************************/
+  40          void response()
+  41          {
+  42   1              unsigned int i;
+  43   1              SDA = 0;
+  44   1              SCL = 1;
+  45   1              delayus(5);//延时大于4us
+  46   1              while((SDA==1)&&(i<255))i++;//若没有收到从机应答，默认从机收到数据不再等待应答信号      
+  47   1              SCL = 0;
+  48   1              delayus(5);
+  49   1      }
+  50          /*************************************
+  51          **函数功能：非应答信号
+  52          **输入：void
+  53          **输出：void
+  54          **************************************/
+  55          void noresponse()
+C51 COMPILER V9.52.0.0   I2C                                                               05/10/2015 20:54:06 PAGE 2   
+
+  56          {
+  57   1              SDA = 1;
+  58   1              SCL = 1;
+  59   1              delayus(5);
+  60   1              SCL = 0;
+  61   1              SDA = 1;
+  62   1      }
+  63          /*************************************
+  64          **函数功能：写1byte数据
+  65          **输入：unsigned char date
+  66          **输出：void
+  67          **************************************/
+  68          void WriteByte(unsigned char dat)
+  69          {
+  70   1              unsigned char i,temp;
+  71   1              temp = dat;
+  72   1              for(i = 0; i < 8; i++)
+  73   1              {
+  74   2                      temp = temp<<1;
+  75   2                      SCL = 0;
+  76   2                      delayus(5);
+  77   2                      SDA = CY;
+  78   2                      delayus(5);
+  79   2                      SCL = 1;
+  80   2                      delayus(5); 
+  81   2              }
+  82   1              SCL = 0;//拉低SCL，为下次数据传输做好准备
+  83   1              delayus(5);
+  84   1              SDA = 1;//释放SDA总线
+  85   1              delayus(5);
+  86   1      }
+  87          /*************************************
+  88          **函数功能：读1byte数据
+  89          **输入：void
+  90          **输出：unsigned char temp
+  91          **************************************/
+  92          unsigned char ReadByte()
+  93          {
+  94   1              unsigned char i,temp;
+  95   1              SCL = 0;
+  96   1              delayus(5);
+  97   1              SDA = 1;
+  98   1              for(i = 0; i < 8; i++)
+  99   1              {
+ 100   2                      SCL = 1;
+ 101   2                      delayus(5);
+ 102   2                      temp = (temp<<1) | SDA;
+ 103   2                      SCL = 0;
+ 104   2                      delayus(5);
+ 105   2              }
+ 106   1              delayus(5);
+ 107   1              return temp;
+ 108   1      }
+ 109          
+ 110          /*************************************
+ 111          **函数功能：终止信号
+ 112          **输入：void
+ 113          **输出：void
+ 114          **************************************/
+ 115          void I2C_stop()
+ 116          {
+ 117   1              SDA = 0;
+C51 COMPILER V9.52.0.0   I2C                                                               05/10/2015 20:54:06 PAGE 3   
+
+ 118   1              SCL = 1;
+ 119   1              delayus(5);//延时大于4us
+ 120   1              SDA = 1;
+ 121   1              delayus(5);//延时大于4.7us
+ 122   1              SCL = 0;
+ 123   1      }
+ 124          
+ 125          
+ 126          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    252    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       6
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

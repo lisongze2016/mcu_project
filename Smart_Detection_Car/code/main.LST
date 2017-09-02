@@ -1,0 +1,74 @@
+C51 COMPILER V9.52.0.0   MAIN                                                              04/07/2015 12:38:12 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include "LCD12864.h"
+   3          #include "delay.h"
+   4          #include "IR.h"
+   5          #include "GSM.h"
+   6          #include "DHT11.h"
+   7          #include "ds18b20.h"
+   8          #include "beep.h"
+   9          void main(void)
+  10          {
+  11   1          EX1init();            //初始化外部中断1
+  12   1          TIM0init();           //初始化定时器
+  13   1          init_LCD();           //初始化液晶
+  14   1          delayms(20);          //延时有助于稳定
+  15   1                LCD_display(0x80,"  智能探测小车");
+  16   1                LCD_display(0x98,"温度:");
+  17   1                LCD_display(0x98+4,"湿度:");
+  18   1                Receive_Message_init();
+  19   1              Send_Message(); //测试
+  20   1          while(1)//主循环
+  21   1          {
+  22   2                                write_LCD_command(0x98+3);
+  23   2                               //write_LCD_data('T');
+  24   2                   write_LCD_data(0x30+read_ds18b20temp()%1000/100);
+  25   2                   write_LCD_data(0x30+read_ds18b20temp()%100/10);
+  26   2                               init_DHT11();
+  27   2             if(irok)                        //如果接收好了进行红外处理
+  28   2                   {   
+  29   3                       Ircordpro();
+  30   3                       irok=0;
+  31   3                   }
+  32   2             if(irpro_ok)                   //如果处理好后进行工作处理，如按对应的按键后显示对应的数字等
+  33   2                   {
+  34   3                      Ir_work();
+  35   3                 }
+  36   2                               if((read_ds18b20temp()%1000/100>=2)&&(read_ds18b20temp()%100/10>7))
+  37   2                               {
+  38   3                                        di_di();
+  39   3                Send_Message();  
+  40   3             }
+  41   2                               if((RH_data/10%10>=6)&&(RH_data%10>=0))
+  42   2                               {
+  43   3                                        di_di();
+  44   3                Send_Message();  
+  45   3             }
+  46   2                               Receive_Message();
+  47   2                               
+  48   2         }
+  49   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    249    ----
+   CONSTANT SIZE    =     27    ----
+   XDATA SIZE       =   ----    ----
+C51 COMPILER V9.52.0.0   MAIN                                                              04/07/2015 12:38:12 PAGE 2   
+
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

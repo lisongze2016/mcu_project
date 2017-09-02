@@ -1,0 +1,39 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Project:</h2>
+F:\学校项目\挑战杯\code\终结版\智能检测系统.uvproj
+Project File Date:  05/11/2015
+
+<h2>Output:</h2>
+Rebuild target 'Target 1'
+compiling beep.c...
+compiling delay.c...
+compiling DHT11.c...
+compiling ds18b20.c...
+compiling LCD12864.c...
+compiling keyscan.c...
+compiling LCDMenu.c...
+compiling main.c...
+compiling GSM.c...
+compiling ADC0832.c...
+linking...
+*** WARNING L13: RECURSIVE CALL TO SEGMENT
+    SEGMENT: ?CO?LCDMENU
+    CALLER:  ?PR?FUN7?LCDMENU
+*** WARNING L13: RECURSIVE CALL TO SEGMENT
+    SEGMENT: ?CO?LCDMENU
+    CALLER:  ?PR?FUN10?LCDMENU
+*** WARNING L13: RECURSIVE CALL TO SEGMENT
+    SEGMENT: ?CO?LCDMENU
+    CALLER:  ?PR?FUN13?LCDMENU
+*** WARNING L13: RECURSIVE CALL TO SEGMENT
+    SEGMENT: ?CO?LCDMENU
+    CALLER:  ?PR?FUN16?LCDMENU
+*** WARNING L13: RECURSIVE CALL TO SEGMENT
+    SEGMENT: ?CO?LCDMENU
+    CALLER:  ?PR?FUN19?LCDMENU
+Program Size: data=126.4 xdata=0 code=8173
+creating hex file from "智能检测系统"...
+"智能检测系统" - 0 Error(s), 5 Warning(s).

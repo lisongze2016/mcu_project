@@ -1,0 +1,10 @@
+"main.obj",
+"delay.obj",
+"LCD12864.obj",
+"GSM.obj",
+"ds18b20.obj",
+"beep.obj",
+"IR.obj",
+"DHT11.obj" 
+TO "Smart_Detection_Car" 
+RAMSIZE(256) 

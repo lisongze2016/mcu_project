@@ -1,0 +1,66 @@
+C51 COMPILER V9.52.0.0   BEEP                                                              04/07/2015 12:38:13 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE BEEP
+OBJECT MODULE PLACED IN beep.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE beep.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include "beep.h"
+   3          #include "delay.h"
+   4           sbit feng=P1^2;
+   5           sbit LED_3W=P1^3;
+   6          
+   7          void di()
+   8          {
+   9   1          feng=0;
+  10   1                delayms(200);
+  11   1                feng=1;         
+  12   1      }
+  13          void di_di()
+  14          {
+  15   1          feng=0;
+  16   1                delayms(200);
+  17   1                feng=1;
+  18   1          delayms(200);
+  19   1                feng=0;
+  20   1          delayms(200);
+  21   1                feng=1;
+  22   1          delayms(200);
+  23   1                feng=0;
+  24   1          delayms(200);
+  25   1                feng=1;
+  26   1          delayms(200);
+  27   1                feng=0;
+  28   1          delayms(200);
+  29   1                feng=1;
+  30   1          delayms(200);
+  31   1                feng=0;
+  32   1          delayms(200);
+  33   1                feng=1;
+  34   1          delayms(200);
+  35   1      }
+  36          void LED_3W_OPEN()
+  37          {
+  38   1          LED_3W=0;
+  39   1      }
+  40          void LED_3W_CLOSE()
+  41          {
+  42   1          LED_3W=1;
+  43   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    108    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

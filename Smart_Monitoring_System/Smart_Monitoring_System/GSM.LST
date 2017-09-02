@@ -1,0 +1,517 @@
+C51 COMPILER V9.52.0.0   GSM                                                               05/16/2015 07:36:41 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE GSM
+OBJECT MODULE PLACED IN GSM.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE GSM.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          /**************************************************
+   2          **文件名称：通过TC35I接收英文短信
+   3          **功能描述:接收英文短信步骤：
+   4          **                          1.发送AT指令
+   5          **                          2.发送AT+CPMS=\"MT\",\"MT\",\"MT\" 设置所有操作都在MT（模块终端）中进行
+   6          **                          3.发送AT+CNMI=2，1设置当有新短信到来时提示
+   7          **                          4.发送AT+CMGF=1,设置文本模式
+   8          **                          5.发送AT+CMGD=1,删除第一条短信
+   9          **                          6.判断接收字符串中是否含有“+CMTI”，含有表示有新的短信
+  10          **                          7.发送AT+CMGR=1，设置读取信息指令
+  11          **                          8.判断接收信息是否一致，做出相应操作
+  12          **                          9.发送AT+CMGD=1，删除读取后的信息
+  13          **作者：李松泽
+  14          **时间：2014—11-16
+  15          **************************************************/
+  16          #include <reg52.h>
+  17          #include <string.h>
+  18          #include "ds18b20.h"
+  19          #include "delay.h"
+  20          #include "LCD12864.h"
+  21          #include "DHT11.h"
+  22          #include "GSM.h"
+  23          #include "beep.h"
+  24          #include "LCDMenu.h"
+  25          #include "ADC0832.h"
+  26          #define uchar unsigned char
+  27          #define uint unsigned int
+  28          #define buff_num 20
+  29          /******************接收短信指令*****************************/
+  30          uchar code AT[]="AT\r";
+  31          uchar code CPMS[]={"AT+CPMS=\"MT\",\"MT\",\"MT\"\r"};
+  32          uchar code CNMI[]={"AT+CNMI=2,1\r"};
+  33          uchar code CMGF[]={"AT+CMGF=1\r"};
+  34          uchar code CMGR[]={"AT+CMGR=1\r"};
+  35          uchar code CMGD[]={"AT+CMGD=1\r"};
+  36          /********************发送中文短信指令***********************/
+  37          uchar code MSXZ[]={"AT+CMGF=0\r"};//发送模式选择
+  38          uchar code MSCS[]={"AT+CSMP=17,167,0,8\r"} ;//设置PDU模式参数，8表示Unicode编码
+  39          uchar code CSCS[]={"AT+CSCS=GSM\r"};
+  40          //uchar code MBSJ[]={"AT+CMGS=54\r"};//输入PDU长度
+  41          uchar code MBSJ[]={"AT+CMGS=84\r"};//输入PDU长度
+  42          //uchar code DXNR[]={"0891683108904105F011000B818123999721F50008A7"};//18329979125F   8123999721F5  
+  43          uchar code DXNR[]={"089168"};
+  44          //uchar Message_zxh[] ={"3108904105F0"};
+  45          uchar code DXNR3[]={"11000B81"};
+  46          //uchar code DXNR1[]={"8123999721F5"};
+  47          //uchar code phone[13]={'8','1','2','3','9','9','9','7','2','1','F','5','\0'};//修改2
+  48          //uchar phone[13] = {0};//修改3
+  49          uchar code DXNR2[]={"0008A7"};
+  50          /*****************注意中文PDU编码长度/2以16进制保存  42(72)***********/
+  51          uchar code MESS[]={"465F53524D68C06D4B73AF58836E295EA64E3AFF1A"};//当前检测环境温度为：25度  的PDU编   20
+  52          uchar code MESS3[]={"002C6E7F5EA64E3AFF1A"};//湿度为：   10
+  53          uchar code MESS4[] = {"002C70DF96FE6D535EA64E3AFF1A"};//烟雾浓度为：14
+  54          uchar code MESS5[] = {"002C963276D76B635E383002"};//,防盗正常    12
+  55          uchar code MESS6[] = {"002C67094EBA95EF51653002"};//有人闯入
+C51 COMPILER V9.52.0.0   GSM                                                               05/16/2015 07:36:41 PAGE 2   
+
+  56          /**********************数字0-9的ＰＤＵ编码****************************/
+  57          //uchar code *num[] = {"0030","0031","0032","0033","0034","0035","0036","0037","0038","0039"};
+  58          uchar code num0[] = "0030";
+  59          uchar code num1[] = "0031";
+  60          uchar code num2[] = "0032";
+  61          uchar code num3[] = "0033";
+  62          uchar code num4[] = "0034";
+  63          uchar code num5[] = "0035";
+  64          uchar code num6[] = "0036";
+  65          uchar code num7[] = "0037";
+  66          uchar code num8[] = "0038";
+  67          uchar code num9[] = "0039";
+  68          uchar code MESS1[]={"5EA6"};//度的ＰＤＵ编码  2
+  69          uchar Rec_Buf[buff_num];
+  70          uchar i=0;
+  71          bit GSM_SR501_flag = 0;
+  72          sbit led1=P0^0;
+  73          //sbit led2=P0^1;
+  74          unsigned char FNum = 10,TNum = 5,RNum = 4;
+  75          /******************************************
+  76          **函数名称:void uart_int(void)
+  77          **功能描述:串口初始化
+  78          **输入:void
+  79          **输出:
+  80          ******************************************/
+  81          void serial_int(void)
+  82          {
+  83   1          SCON=0x50;//串行口工作方式1，REN=1，允许串行口接收数据
+  84   1          PCON=0x00;//SMOD=0；波特率不加倍
+  85   1          TMOD|=0x20;//T1方式2
+  86   1          TH1=0xFD;//装初值
+  87   1          TL1=0xFD;//装初值
+  88   1          TR1=1;//启动定时器1
+  89   1              ES=1;//开启串口中断
+  90   1              EA=1;//开启全局中断
+  91   1      }
+  92          /******************************************
+  93          **函数名称:void send(uchar *tab)
+  94          **功能描述:发送指令数据
+  95          **输入:uchar *tab
+  96          **输出:
+  97          ******************************************/
+  98          void send(uchar *tab)
+  99          {
+ 100   1              ES=0;
+ 101   1          while((*tab)!='\0')
+ 102   1          {
+ 103   2              SBUF=*tab;
+ 104   2              while(TI==0);
+ 105   2              TI=0;
+ 106   2              tab++;
+ 107   2          }
+ 108   1              ES=1;
+ 109   1      }
+ 110          /******************************************
+ 111          **函数名称:void CLR_Buf()
+ 112          **功能描述:清除缓存数据
+ 113          **输入:无
+ 114          **输出:
+ 115          ******************************************/
+ 116          void CLR_Buf()
+ 117          {
+C51 COMPILER V9.52.0.0   GSM                                                               05/16/2015 07:36:41 PAGE 3   
+
+ 118   1          unsigned char k;
+ 119   1          for(k=0;k<buff_num;k++)
+ 120   1          {
+ 121   2              Rec_Buf[k]=0;
+ 122   2          }
+ 123   1          i=0;
+ 124   1      }
+ 125          
+ 126          /******************************************
+ 127          **函数名称:bit hand(unsigned char *a)
+ 128          **功能描述:判断缓存中是否含有指定的字符串
+ 129          **输入:unsigned char *a
+ 130          **输出:bit 1———含有   0————————不含有
+ 131          ******************************************/
+ 132          bit hand(unsigned char *a)
+ 133          {
+ 134   1          if(strstr(Rec_Buf,a)!=NULL)
+ 135   1                      return 1;
+ 136   1              else
+ 137   1                      return 0;
+ 138   1      }
+ 139          /******************************************
+ 140          **函数名称:void Send_num()
+ 141          **功能描述:发送0-9PDU编码
+ 142          **输入:
+ 143          **输出:
+ 144          ******************************************/
+ 145          void Send_num(uchar NUM)
+ 146          {
+ 147   1      //      switch(NUM)
+ 148   1      //      {       
+ 149   1      //              case 0: send(num[0]); delayms(1000); break;
+ 150   1      //              case 1: send(num[1]); delayms(1000); break;
+ 151   1      //              case 2: send(num[2]); delayms(1000); break;
+ 152   1      //              case 3: send(num[3]); delayms(1000); break;
+ 153   1      //              case 4: send(num[4]); delayms(1000); break;
+ 154   1      //              case 5: send(num[5]); delayms(1000); break;
+ 155   1      //              case 6: send(num[6]); delayms(1000); break;
+ 156   1      //              case 7: send(num[7]); delayms(1000); break;
+ 157   1      //              case 8: send(num[8]); delayms(1000); break;
+ 158   1      //              case 9: send(num[9]); delayms(1000); break;     
+ 159   1      //              default:send(num[0]); delayms(1000); 
+ 160   1      //      }
+ 161   1              switch(NUM)
+ 162   1              {       
+ 163   2                      case 0: send(num0); delayms(1000); break;
+ 164   2                      case 1: send(num1); delayms(1000); break;
+ 165   2                      case 2: send(num2); delayms(1000); break;
+ 166   2                      case 3: send(num3); delayms(1000); break;
+ 167   2                      case 4: send(num4); delayms(1000); break;
+ 168   2                      case 5: send(num5); delayms(1000); break;
+ 169   2                      case 6: send(num6); delayms(1000); break;
+ 170   2                      case 7: send(num7); delayms(1000); break;
+ 171   2                      case 8: send(num8); delayms(1000); break;
+ 172   2                      case 9: send(num9); delayms(1000); break;       
+ 173   2                      default:send(num0); delayms(1000); 
+ 174   2              }
+ 175   1      }
+ 176          /******************************************
+ 177          **函数名称:void Send_Value()
+ 178          **功能描述:发送采集数据
+ 179          **输入:
+C51 COMPILER V9.52.0.0   GSM                                                               05/16/2015 07:36:41 PAGE 4   
+
+ 180          **输出:
+ 181          ******************************************/
+ 182          void Send_Value()
+ 183          {
+ 184   1          uchar bai,shi;
+ 185   1              uint T_Value;
+ 186   1              T_Value=read_ds18b20temp();
+ 187   1              bai=T_Value%1000/100;
+ 188   1              shi=T_Value%100/10;
+ 189   1              write_LCD_command(0x90);
+ 190   1              write_LCD_data('T');
+ 191   1              write_LCD_data(0x30+bai);
+ 192   1              write_LCD_data(0x30+shi);
+ 193   1              Send_num(bai);
+ 194   1              Send_num(shi);
+ 195   1      //      Send_num(1);
+ 196   1      //      Send_num(2);
+ 197   1      }
+ 198          /******************************************
+ 199          **函数名称:void Send_Value()
+ 200          **功能描述:发送采集湿度数据
+ 201          **输入:
+ 202          **输出:
+ 203          ******************************************/
+ 204          void Send_Wetness_Value()
+ 205          {
+ 206   1              uchar bai,shi;
+ 207   1              bai=RH_data/10%10;
+ 208   1              shi=RH_data%10;
+ 209   1              write_LCD_command(0x90+2);
+ 210   1              write_LCD_data('R');
+ 211   1              write_LCD_data(0x30+bai);
+ 212   1              write_LCD_data(0x30+shi);
+ 213   1              Send_num(bai);
+ 214   1              Send_num(shi);
+ 215   1      //      Send_num(3);
+ 216   1      //      Send_num(4);
+ 217   1      }
+ 218          void Send_fogValue()
+ 219          {
+ 220   1              uchar bai,shi;
+ 221   1              uint fog_val = 0;
+ 222   1              //fog_val = ADC_val;
+ 223   1          write_LCD_command(0x90+4);
+ 224   1              write_LCD_data('F');
+ 225   1              fog_val = getvalue0832(0)*100/255;
+ 226   1              bai = fog_val/10;
+ 227   1              shi = fog_val%10;
+ 228   1      //      shi = 0;
+ 229   1      //      ge = 6;
+ 230   1              write_LCD_data(0x30+bai);
+ 231   1              write_LCD_data(0x30+shi);
+ 232   1              //bai = 0;
+ 233   1              //shi = 0;
+ 234   1              //write_LCD_data('A');
+ 235   1              Send_num(bai);
+ 236   1              //write_LCD_data('b');
+ 237   1              Send_num(shi);
+ 238   1              //write_LCD_data('c');
+ 239   1              
+ 240   1              
+ 241   1      }
+C51 COMPILER V9.52.0.0   GSM                                                               05/16/2015 07:36:41 PAGE 5   
+
+ 242          
+ 243          
+ 244          //void EC_num(uchar *phone)//修改
+ 245          //{
+ 246          //      uchar i;
+ 247          //      /*
+ 248          //      phone[0] = '1';
+ 249          //      phone[1] = '8';
+ 250          //      phone[2] = '3';
+ 251          //      phone[3] = '2';
+ 252          //      phone[4] = '9';
+ 253          //      phone[5] = '9';
+ 254          //      phone[6] = '7';
+ 255          //      phone[7] = '9';
+ 256          //      phone[8] = '1';
+ 257          //      phone[9] = '2';
+ 258          //      phone[10] = '5';
+ 259          //      phone[11] = 'F';
+ 260          //      phone[12] = '\0';
+ 261          //      */
+ 262          //      for(i = 0; i < 6; i++)
+ 263          //      {
+ 264          //              
+ 265          //              phone[2*i] ^= phone[2*i+1];
+ 266          //              phone[2*i+1] ^= phone[2*i];
+ 267          //              phone[2*i] ^= phone[2*i+1];
+ 268          //      }
+ 269          //      
+ 270          //}
+ 271          
+ 272          
+ 273          
+ 274          
+ 275          
+ 276          void Receive_Message_init()
+ 277          {
+ 278   1          serial_int();//串口初始化
+ 279   1              CLR_Buf();//清除缓存区
+ 280   1              while(!hand("OK"))
+ 281   1              {
+ 282   2              send(AT);       // 发送AT指令
+ 283   2              delayms(500);
+ 284   2              }
+ 285   1              LCD_display(0x90,"                ");
+ 286   1              LCD_display(0x90,"GSM 联网中...   ");
+ 287   1              CLR_Buf();
+ 288   1              //led1=0;
+ 289   1              //delayms(1000);
+ 290   1          send(CPMS); //设置所有模式在MT（模块终端）中进行      
+ 291   1          delayms(500);
+ 292   1              while(!hand("OK"));
+ 293   1              CLR_Buf();
+ 294   1              //led2=0;
+ 295   1              //delayms(1000);
+ 296   1          send(CNMI);  //设置当有新的短信来时提示     
+ 297   1          delayms(500);
+ 298   1              while(!hand("OK"));
+ 299   1              CLR_Buf();
+ 300   1              //led1=1;
+ 301   1              //delayms(1000);
+ 302   1              send(CMGF);//设置为文本模式       
+ 303   1          delayms(500);
+C51 COMPILER V9.52.0.0   GSM                                                               05/16/2015 07:36:41 PAGE 6   
+
+ 304   1              while(!hand("OK"));
+ 305   1              CLR_Buf();
+ 306   1              //led2=1;
+ 307   1              //delayms(1000);
+ 308   1              send(CMGD); //删除第一条短信      
+ 309   1          delayms(500);
+ 310   1              while(!hand("OK"));
+ 311   1              CLR_Buf();
+ 312   1              //led1=0;
+ 313   1              //delayms(500);
+ 314   1              LCD_display(0x90,"                ");
+ 315   1              LCD_display(0x90,"GSM 联网OK      ");
+ 316   1              delayms(2000);
+ 317   1              LCD_display(0x90,"                ");
+ 318   1      //      LCD_display(0x80,"--智能检测系统--");
+ 319   1      //      delayms(2000);
+ 320   1      //      di();
+ 321   1      //      di();
+ 322   1      //      di();
+ 323   1      //      di();
+ 324   1              
+ 325   1      }
+ 326          /******************************************
+ 327          **函数名称:void Send_Message()
+ 328          **功能描述:发送中文短信
+ 329          **输入:
+ 330          **输出:
+ 331          ******************************************/
+ 332          void Send_Message()
+ 333          {
+ 334   1              uchar i;
+ 335   1              LCD_display(0x90,"                ");
+ 336   1              LCD_display(0x88,"发送短信中...   ");
+ 337   1              LCD_display(0x80,"                ");
+ 338   1              LCD_display(0x98,"                ");
+ 339   1              delayms(2000);
+ 340   1          send(AT);       // 1.发送AT指令
+ 341   1          delayms(500);
+ 342   1          send(MSXZ);     //发送短信模式选择，2.发送AT+CMGF=0  设置PDU模式
+ 343   1          delayms(500);
+ 344   1              led1 =0;
+ 345   1          send(MSCS);     //3.发送AT+CSMP=17、167、0、8设置PDU模式参数
+ 346   1          delayms(500);
+ 347   1          send(CSCS);     //4.发送AT+CSCS=GSM 设置GSM字符集
+ 348   1          delayms(500);
+ 349   1              //led2=0;
+ 350   1          send(MBSJ);// 5.发送AT+CMGS=40 输入PDU长度
+ 351   1          delayms(500);
+ 352   1          send(DXNR);//发送短信正文,6.发送短信内容，此设置下只能发送中文
+ 353   1              send(Message_zxh);
+ 354   1              LCD_display(0x80,Message_zxh);
+ 355   1              delayms(500);
+ 356   1              send(DXNR3);
+ 357   1              //send(DXNR1);
+ 358   1              //EC_num(phoneMenu);//修改4
+ 359   1      
+ 360   1              if(phoneMenu[0] == '1')
+ 361   1              {
+ 362   2                      for(i = 0; i < 6; i++)
+ 363   2                      {
+ 364   3                      
+ 365   3                              phoneMenu[2*i] ^= phoneMenu[2*i+1];
+C51 COMPILER V9.52.0.0   GSM                                                               05/16/2015 07:36:41 PAGE 7   
+
+ 366   3                              phoneMenu[2*i+1] ^= phoneMenu[2*i];
+ 367   3                              phoneMenu[2*i] ^= phoneMenu[2*i+1];
+ 368   3                      }
+ 369   2      }
+ 370   1              LCD_display(0x80,phoneMenu);
+ 371   1              delayms(1000);
+ 372   1              send(phoneMenu);//修改
+ 373   1              LCD_display(0x80,"号码信息发送完毕");
+ 374   1              send(DXNR2);
+ 375   1          send(MESS);
+ 376   1              Send_Value();
+ 377   1              led1=1;
+ 378   1              LCD_display(0x80,"温度信息发送完毕");
+ 379   1              delayms(500);
+ 380   1              send(MESS1);
+ 381   1              delayms(500);
+ 382   1              send(MESS3);
+ 383   1              Send_Wetness_Value();
+ 384   1              LCD_display(0x80,"湿度信息发送完毕");
+ 385   1              send(MESS4);//烟雾
+ 386   1              Send_fogValue();
+ 387   1              LCD_display(0x80,"烟雾信息发送完毕");
+ 388   1              delayms(500);
+ 389   1              if(GSM_SR501_flag == 0)
+ 390   1                      send(MESS5);//防盗正常
+ 391   1              else
+ 392   1              {
+ 393   2                      send(MESS6);//有人闯入
+ 394   2                      GSM_SR501_flag = 0;
+ 395   2              }
+ 396   1              LCD_display(0x80,"防盗信息发送完毕");
+ 397   1          delayms(500);
+ 398   1              LCD_display(0x80,"                ");
+ 399   1              //led2=1;
+ 400   1              
+ 401   1      //      delayms(500);
+ 402   1      //    delayms(500);
+ 403   1          SBUF=0x1A;
+ 404   1          //while(TI==0);//如果TI=0；未发送完。循环等待
+ 405   1          //TI=0;//已发送完。TI清零
+ 406   1              //di();
+ 407   1              //di();
+ 408   1              delayms(2000);//这里延时等待发送短信完毕
+ 409   1              delayms(2000);//这里延时等待发送短信完毕
+ 410   1              LCD_display(0x90,"发送完毕        ");
+ 411   1              LCD_display(0x88,"                ");
+ 412   1              
+ 413   1              Receive_Message_init();
+ 414   1      }
+ 415          
+ 416          /******************************************
+ 417          **函数名称:void Receive_Message()
+ 418          **功能描述:接收信息并进行数据处理
+ 419          **输入:
+ 420          **输出:
+ 421          ******************************************/
+ 422          void Receive_Message()
+ 423          {
+ 424   1              uint j;
+ 425   1              if(strstr(Rec_Buf,"+CMTI")!=NULL)//若缓存字符串中含有 “+CMTI“ 就表示有新的短信
+ 426   1          {
+ 427   2                      CLR_Buf();
+C51 COMPILER V9.52.0.0   GSM                                                               05/16/2015 07:36:41 PAGE 8   
+
+ 428   2                      delayms(1000);
+ 429   2                      send(CMGR);//读取信息
+ 430   2              delayms(1000);
+ 431   2              if(strstr(Rec_Buf,"report")!=NULL)//如果信息内容为open
+ 432   2                      {
+ 433   3                              //LCD_display(0x90,"发送短信中");
+ 434   3                              for(j=0;j<8;j++)
+ 435   3                              {
+ 436   4                                      led1=0;
+ 437   4                                      delayms(100);
+ 438   4                                      led1=1;
+ 439   4                                      delayms(100);
+ 440   4                              }
+ 441   3                              FNum = 10;
+ 442   3                              TNum = 5;
+ 443   3                              RNum = 4;
+ 444   3                  Send_Message();
+ 445   3                      }
+ 446   2              CLR_Buf();
+ 447   2              delayms(500);
+ 448   2              send(CMGD);
+ 449   2                      while(!hand("OK")); 
+ 450   2                  CLR_Buf();
+ 451   2             // Receive_Message_init();                               
+ 452   2          }                                   
+ 453   1              
+ 454   1      }
+ 455          /******************************************
+ 456          **函数名称:void serial()
+ 457          **功能描述:串口中断处理
+ 458          **输入:
+ 459          **输出:
+ 460          ******************************************/
+ 461          void serial()interrupt 4
+ 462          {
+ 463   1              ES=0;
+ 464   1              if(TI)
+ 465   1              {
+ 466   2                      TI=0;
+ 467   2          }
+ 468   1              if(RI)
+ 469   1              {
+ 470   2                      RI=0;
+ 471   2                      Rec_Buf[i]=SBUF;
+ 472   2                      i++;
+ 473   2                      if(i>buff_num)
+ 474   2                              i=0;
+ 475   2                      ES=1;
+ 476   2          }
+ 477   1      }
+ 478          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1343    ----
+   CONSTANT SIZE    =    537    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     24      11
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+C51 COMPILER V9.52.0.0   GSM                                                               05/16/2015 07:36:41 PAGE 9   
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

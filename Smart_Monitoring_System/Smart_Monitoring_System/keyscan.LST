@@ -1,0 +1,74 @@
+C51 COMPILER V9.52.0.0   KEYSCAN                                                           05/16/2015 07:36:40 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE KEYSCAN
+OBJECT MODULE PLACED IN keyscan.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE keyscan.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include "keyscan.h"
+   3          #include "delay.h"
+   4          #define DataPort P1
+   5          
+   6          unsigned char keyscan()
+   7          {
+   8   1              unsigned char key_l,key_h;
+   9   1              DataPort = 0xf0;
+  10   1              key_l = DataPort&0xf0;//将行数据清零，列数据置1
+  11   1              if(key_l != 0xf0)
+  12   1              {
+  13   2                      delayms(5);
+  14   2                      if(key_l != 0xf0)
+  15   2                      {
+  16   3                              key_l = DataPort&0xf0;//将行数据清零，列数据置1
+  17   3                              DataPort = key_l|0x0f;//将行数置1，此时因按键未松手，列数据某一位为零，将行数据某位拉低
+  18   3                              key_h = DataPort&0x0f;//将列数据清零，保存行数据
+  19   3                              while((DataPort&0x0f) != 0x0f);//等待按键松手
+  20   3                              return(key_h|key_l);
+  21   3                      }
+  22   2              }
+  23   1              return (0xff);
+  24   1      }
+  25          
+  26          
+  27          unsigned char keypro()
+  28          {
+  29   1              switch(keyscan())
+  30   1              {
+  31   2                      case 0x7e: return 10;break;//4
+  32   2                      case 0xbe: return 3;break;
+  33   2                      case 0xde: return 2;break;
+  34   2                      case 0xee: return 1;break;
+  35   2                      case 0x7d: return 11;break;//8
+  36   2                      case 0xbd: return 6;break;//7
+  37   2                      case 0xdd: return 5;break;//6
+  38   2                      case 0xed: return 4;break;//5
+  39   2                      case 0x7b: return 12;break;
+  40   2                      case 0xbb: return 9;break;//11
+  41   2                      case 0xdb: return 8;break;//10
+  42   2                      case 0xeb: return 7;break;//9
+  43   2                      case 0x77: return 16;break;
+  44   2                      case 0xb7: return 15;break;
+  45   2                      case 0xd7: return 0;break;//14
+  46   2                      case 0xe7: return 13;break;
+  47   2                      default: return 50;break;
+  48   2              }
+  49   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    167    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+C51 COMPILER V9.52.0.0   KEYSCAN                                                           05/16/2015 07:36:40 PAGE 2   
+
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

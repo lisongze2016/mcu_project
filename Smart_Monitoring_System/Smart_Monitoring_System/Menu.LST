@@ -1,0 +1,55 @@
+C51 COMPILER V9.52.0.0   MENU                                                              05/10/2015 23:10:55 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE MENU
+OBJECT MODULE PLACED IN Menu.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE Menu.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "Menu.h"
+   2          #include "LCDMenu.h"
+*** ERROR C202 IN LINE 25 OF LCDMenu.h: 'fun1': undefined identifier
+*** ERROR C202 IN LINE 26 OF LCDMenu.h: 'fun2': undefined identifier
+*** ERROR C202 IN LINE 27 OF LCDMenu.h: 'fun3': undefined identifier
+*** ERROR C202 IN LINE 28 OF LCDMenu.h: 'fun4': undefined identifier
+*** ERROR C202 IN LINE 29 OF LCDMenu.h: 'fun5': undefined identifier
+*** ERROR C202 IN LINE 30 OF LCDMenu.h: 'fun6': undefined identifier
+*** ERROR C202 IN LINE 32 OF LCDMenu.h: 'fun7': undefined identifier
+*** ERROR C202 IN LINE 33 OF LCDMenu.h: 'fun8': undefined identifier
+*** ERROR C202 IN LINE 34 OF LCDMenu.h: 'fun9': undefined identifier
+*** ERROR C202 IN LINE 36 OF LCDMenu.h: 'fun10': undefined identifier
+*** ERROR C202 IN LINE 37 OF LCDMenu.h: 'fun11': undefined identifier
+*** ERROR C202 IN LINE 38 OF LCDMenu.h: 'fun12': undefined identifier
+*** ERROR C202 IN LINE 41 OF LCDMenu.h: 'fun13': undefined identifier
+*** ERROR C202 IN LINE 42 OF LCDMenu.h: 'fun14': undefined identifier
+*** ERROR C202 IN LINE 43 OF LCDMenu.h: 'fun15': undefined identifier
+*** ERROR C202 IN LINE 44 OF LCDMenu.h: 'fun16': undefined identifier
+*** ERROR C202 IN LINE 46 OF LCDMenu.h: 'fun17': undefined identifier
+*** ERROR C202 IN LINE 47 OF LCDMenu.h: 'fun18': undefined identifier
+*** ERROR C202 IN LINE 48 OF LCDMenu.h: 'fun19': undefined identifier
+*** ERROR C202 IN LINE 49 OF LCDMenu.h: 'fun20': undefined identifier
+*** ERROR C202 IN LINE 51 OF LCDMenu.h: 'fun21': undefined identifier
+*** ERROR C202 IN LINE 53 OF LCDMenu.h: 'fun22': undefined identifier
+*** ERROR C202 IN LINE 54 OF LCDMenu.h: 'fun23': undefined identifier
+*** ERROR C202 IN LINE 56 OF LCDMenu.h: 'fun24': undefined identifier
+   3          #include "keyscan.h"
+   4          
+   5          
+   6          void ManageMenu()
+   7          {
+   8   1              switch(keypro())
+   9   1              {
+  10   2                      case 10: func_index=table[func_index].up; break;
+  11   2                      case 11: func_index=table[func_index].down; break;
+  12   2                      case 12: func_index=table[func_index].enter; break;
+  13   2                      case 16: func_index=table[func_index].back;break;
+  14   2                      case 15: Menu_flag = 1;//退出菜单标志位
+  15   2                      default: break;
+  16   2              }
+  17   1              
+  18   1              current_operation_index=table[func_index].current_operation;
+  19   1              (*current_operation_index)();
+  20   1      }
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  24 ERROR(S)

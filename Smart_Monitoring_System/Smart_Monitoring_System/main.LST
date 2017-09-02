@@ -1,0 +1,217 @@
+C51 COMPILER V9.52.0.0   MAIN                                                              05/16/2015 07:36:41 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include "ds18b20.h"
+   3          #include "GSM.h"
+   4          #include "LCD12864.h"
+   5          #include "LCDMenu.h"
+   6          #include "keyscan.h"
+   7          #include "DHT11.h"
+   8          #include "delay.h"
+   9          #include "string.h"
+  10          #include "ADC0832.h"
+  11          #include "beep.h"
+  12          
+  13          unsigned char DS18b20_Temp[3] = {0};
+  14          bit SR_flag = 0;
+  15          sbit SR501_dat = P3^5;
+  16          
+  17          void Init_LCD_display()
+  18          {
+  19   1              LCD_display(0x80,"--智能监控系统--");
+  20   1              write_LCD_command(0x90);
+  21   1              write_LCD_data('T');
+  22   1              write_LCD_data(':');
+  23   1              write_LCD_data(0x30+TMenu[0]);
+  24   1              write_LCD_data(0x30+TMenu[1]);
+  25   1              write_LCD_data(' ');
+  26   1              write_LCD_data(' ');
+  27   1              write_LCD_data('R');
+  28   1              write_LCD_data(':');
+  29   1              write_LCD_data(0x30+RMenu[0]);
+  30   1              write_LCD_data(0x30+RMenu[1]);
+  31   1              write_LCD_data(' ');
+  32   1              write_LCD_data(' ');
+  33   1              write_LCD_data('F');
+  34   1              write_LCD_data(':');
+  35   1              write_LCD_data(0x30+FMenu[0]);
+  36   1              write_LCD_data(0x30+FMenu[1]);
+  37   1              LCD_display(0x88,"温度 :");
+  38   1              LCD_display(0x88+4,"湿度 :");
+  39   1              LCD_display(0x98,"烟雾 :");     
+  40   1              LCD_display(0x98+4,"防盗 :OK");
+  41   1              write_LCD_command(0x88+3);
+  42   1              DS18b20_Temp[0] = read_ds18b20temp()%1000/100;
+  43   1              DS18b20_Temp[1] = read_ds18b20temp()%100/10;
+  44   1              write_LCD_data(0x30+DS18b20_Temp[0]);
+  45   1              write_LCD_data(0x30+DS18b20_Temp[1]);
+  46   1              init_DHT11();
+  47   1              ADC_display();
+  48   1      }
+  49          
+  50          void main()
+  51          {
+  52   1              int count = 0;
+  53   1              unsigned char key_value,key2_value ;
+  54   1              init_LCD();
+  55   1              Receive_Message_init();
+C51 COMPILER V9.52.0.0   MAIN                                                              05/16/2015 07:36:41 PAGE 2   
+
+  56   1              
+  57   1              while(1)
+  58   1              {
+  59   2                      Init_LCD_display();
+  60   2                      //Send_Message();
+  61   2                      Receive_Message();
+  62   2                      key_value = keypro();
+  63   2                      if(key_value == 1)
+  64   2                      {
+  65   3                              LCD_display(0x98+4,"防盗 :开");
+  66   3                              SR_flag = 1;
+  67   3                              delayms(5000);
+  68   3                              di_di();
+  69   3                      }
+  70   2                      if(key_value == 13)
+  71   2                      { 
+  72   3                              Menu_flag = 0;//进入菜单标志位
+  73   3                              while(1)
+  74   3                              {
+  75   4                                      ManageMenu();
+  76   4                                      if(Menu_flag == 1)
+  77   4                                              break;
+  78   4                              }
+  79   3                      }
+  80   2                      if((DS18b20_Temp[0] >= TMenu[0])&&(DS18b20_Temp[1] >TMenu[1]))
+  81   2                      {
+  82   3                              if(strlen(phoneMenu) > 10)
+  83   3                              {
+  84   4                                      if(TNum != 0)
+  85   4                                      {
+  86   5                                              Send_Message();
+  87   5                                              TNum--;
+  88   5                                      }
+  89   4                                      else
+  90   4                                      {
+  91   5                                              LCD_display(0x90,"温度报警次数已够");
+  92   5                                              delayms(1000);
+  93   5                                              LCD_display(0x90,"                ");
+  94   5                                      }
+  95   4                              }
+  96   3                              else
+  97   3                              {
+  98   4                                      LCD_display(0x90,"用户号码未设定1 ");
+  99   4                                      delayms(1000);
+ 100   4                                      LCD_display(0x90,"                ");
+ 101   4                              }
+ 102   3                      }
+ 103   2                      if((RH_data/10%10>=RMenu[0])&&(RH_data%10>=RMenu[1]))
+ 104   2                      {
+ 105   3                              //di_di();
+ 106   3                              if(strlen(phoneMenu) > 10)
+ 107   3                              {
+ 108   4                                      if(RNum != 0)
+ 109   4                                      {
+ 110   5                                              Send_Message();
+ 111   5                                              RNum--;
+ 112   5                                      }
+ 113   4                                      else
+ 114   4                                      {
+ 115   5                                              LCD_display(0x90,"湿度报警次数已够");
+ 116   5                                              delayms(1000);
+ 117   5                                              LCD_display(0x90,"                ");
+C51 COMPILER V9.52.0.0   MAIN                                                              05/16/2015 07:36:41 PAGE 3   
+
+ 118   5                                      }
+ 119   4                              }  
+ 120   3                              else
+ 121   3                              {
+ 122   4                                      LCD_display(0x90,"用户号码未设定2 ");
+ 123   4                                      delayms(1000);
+ 124   4                                      LCD_display(0x90,"                ");
+ 125   4                              }
+ 126   3                      }
+ 127   2                      if((ADC_val/10>=FMenu[0])&&(ADC_val%10>=FMenu[1]))
+ 128   2                      {
+ 129   3                              if(strlen(phoneMenu) > 10)
+ 130   3                              {
+ 131   4                                      if(FNum != 0)
+ 132   4                                      {
+ 133   5                                              Send_Message();
+ 134   5                                              FNum--;
+ 135   5                                      }
+ 136   4                                      else
+ 137   4                                      {
+ 138   5                                              LCD_display(0x90,"烟雾报警次数已够");
+ 139   5                                              delayms(1000);
+ 140   5                                              LCD_display(0x90,"                ");
+ 141   5                                      }
+ 142   4                              }
+ 143   3                              else
+ 144   3                              {
+ 145   4                                      LCD_display(0x90,"用户号码未设定3 ");
+ 146   4                                      delayms(1000);
+ 147   4                                      LCD_display(0x90,"                ");
+ 148   4                              }
+ 149   3                      }
+ 150   2                      //SR501_find();
+ 151   2                      
+ 152   2                      if(SR_flag ==1)
+ 153   2                      {
+ 154   3                              if(SR501_dat==1)
+ 155   3                              {
+ 156   4                                      count = 0;
+ 157   4                                      GSM_SR501_flag = 1;
+ 158   4                                      while(1)
+ 159   4                                      {
+ 160   5                                              count++;
+ 161   5                                              LCD_display(0x98+4,"有人闯入");
+ 162   5                                              di();
+ 163   5                                              if(count ==1)
+ 164   5                                              {
+ 165   6                                                      if(strlen(phoneMenu) > 10)
+ 166   6                                                      {
+ 167   7                                                              Send_Message();
+ 168   7                                                      }
+ 169   6                                                      else
+ 170   6                                                      {
+ 171   7                                                              LCD_display(0x90,"用户号码未设定  ");
+ 172   7                                                              delayms(1000);
+ 173   7                                                              LCD_display(0x90,"                ");
+ 174   7                                                      } 
+ 175   6                                              }
+ 176   5                                              key2_value = keypro();
+ 177   5                                              if(key2_value == 2)
+ 178   5                                              {
+ 179   6                                                      LCD_display(0x98+4,"防盗 :关");
+C51 COMPILER V9.52.0.0   MAIN                                                              05/16/2015 07:36:41 PAGE 4   
+
+ 180   6                                                      SR_flag = 0;
+ 181   6                                                      break;
+ 182   6                                              }
+ 183   5                                      }
+ 184   4                              }
+ 185   3                      }
+ 186   2                      
+ 187   2              }
+ 188   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    713    ----
+   CONSTANT SIZE    =    207    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      3       3
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
