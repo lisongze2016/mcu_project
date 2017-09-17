@@ -1,4 +1,4 @@
-C51 COMPILER V9.56.0.0   KEY                                                               09/17/2017 17:45:46 PAGE 1   
+C51 COMPILER V9.56.0.0   KEY                                                               09/17/2017 22:48:44 PAGE 1   
 
 
 C51 COMPILER V9.56.0.0, COMPILATION OF MODULE KEY
@@ -62,7 +62,7 @@ line level    source
   52          备    注：无。
   53          ********************************************************************/
   54          void InitKeyboard(void)
-C51 COMPILER V9.56.0.0   KEY                                                               09/17/2017 17:45:46 PAGE 2   
+C51 COMPILER V9.56.0.0   KEY                                                               09/17/2017 22:48:44 PAGE 2   
 
   55          {
   56   1       KeyIO=0xFF;    //键盘对应的口设置为输入状态
@@ -126,7 +126,7 @@ line level    source
  114          
 
 
-C51 COMPILER V9.56.0.0   KEY                                                               09/17/2017 17:45:46 PAGE 3   
+C51 COMPILER V9.56.0.0   KEY                                                               09/17/2017 22:48:44 PAGE 3   
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
    CODE SIZE        =    137    ----

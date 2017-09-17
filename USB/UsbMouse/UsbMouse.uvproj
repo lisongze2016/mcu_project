@@ -379,6 +379,16 @@
               <FileType>1</FileType>
               <FilePath>.\src\key.c</FilePath>
             </File>
+            <File>
+              <FileName>PDIUSBD12.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\PDIUSBD12.c</FilePath>
+            </File>
+            <File>
+              <FileName>UsbCore.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\UsbCore.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

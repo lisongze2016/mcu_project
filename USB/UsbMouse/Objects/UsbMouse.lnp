@@ -1,5 +1,7 @@
 ".\Objects\main.obj",
 ".\Objects\uart.obj",
-".\Objects\key.obj" 
+".\Objects\key.obj",
+".\Objects\PDIUSBD12.obj",
+".\Objects\UsbCore.obj" 
 TO ".\Objects\UsbMouse" 
 PRINT(".\Listings\UsbMouse.m51") RAMSIZE(256) 

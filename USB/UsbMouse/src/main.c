@@ -13,6 +13,8 @@
 #include "include/uart.h"
 #include "include/key.h"
 #include "include/led.h"
+#include "include/pdiusbd12.h"
+#include "include/UsbCore.h"
 
 
 code uint8 HeadTable[][100]={
@@ -98,15 +100,64 @@ void display_info(void)
 	}
 }
 
+int PDIUSBD12_detect(void)
+{
+	uint16 id;
+
+	id=D12ReadID();
+	Prints("Your D12 chip\'s ID is: ");
+	PrintShortIntHex(id);
+	if(id == 0x1012)
+	{
+		Prints(". ID is correrct!\r\n\r\n");
+	}
+	else
+	{
+		Prints(". ID is incorrerct!\r\n\r\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+/********************************************************************
+函数功能：USB中断处理函数。
+入口参数：无。
+返    回：无。
+备    注：无。					
+********************************************************************/
+void PDIUSBD12_interrupt_handle(void)
+{
+	uint8 InterruptSource;
+
+	D12WriteCommand(READ_INTERRUPT_REGISTER);	//写读中断寄存器的命令
+	InterruptSource = D12ReadByte(); 					//读回第一字节的中断寄存器
+	if(InterruptSource&0x80)UsbBusSuspend();	//总线挂起中断处理
+	if(InterruptSource&0x40)UsbBusReset();		//总线复位中断处理
+	if(InterruptSource&0x01)UsbEp0Out();			//端点0输出中断处理
+	if(InterruptSource&0x02)UsbEp0In();				//端点0输入中断处理
+	if(InterruptSource&0x04)UsbEp1Out();			//端点1输出中断处理
+	if(InterruptSource&0x08)UsbEp1In();				//端点1输入中断处理
+	if(InterruptSource&0x10)UsbEp2Out();			//端点2输出中断处理
+	if(InterruptSource&0x20)UsbEp2In();				//端点2输入中断处理
+}
+
 void main(void)
 {
-	EA=1;						//打开中断
-	InitKeyboard(); //初始化按键
-	InitUART();			//初始化串口
-	display_info();	//显示信息
+	EA=1;									//打开中断
+	InitKeyboard(); 			//初始化按键
+	InitUART();						//初始化串口
+	display_info();				//显示信息
+	PDIUSBD12_detect();		//识别芯片
 
+	UsbDisconnect();			//先断开USB连接
+	UsbConnect();					//将USB连接上
 	while(1)
 	{
+		if(D12GetIntPin() == 0) //如果有中断发生 低电平有效
+		{
+			PDIUSBD12_interrupt_handle();
+		}
 		LEDs=~KeyPress;  //利用板上8个LED显示按键状态，按下时亮
 		SendReport();
 	}

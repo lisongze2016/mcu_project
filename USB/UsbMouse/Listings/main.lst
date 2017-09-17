@@ -1,4 +1,4 @@
-C51 COMPILER V9.56.0.0   MAIN                                                              09/17/2017 17:45:45 PAGE 1   
+C51 COMPILER V9.56.0.0   MAIN                                                              09/17/2017 22:48:44 PAGE 1   
 
 
 C51 COMPILER V9.56.0.0, COMPILATION OF MODULE MAIN
@@ -23,116 +23,167 @@ line level    source
   13          #include "include/uart.h"
   14          #include "include/key.h"
   15          #include "include/led.h"
-  16          
-  17          
-  18          code uint8 HeadTable[][100]={
-  19          "********************************************************************\r\n",
-  20          "******                      USB鼠标                           ******\r\n",
-  21          "******                      AT89S52 CPU                       ******\r\n",
-  22          "******                  建立日期：",__DATE__,"                 ******\r\n",
-  23          "******                   建立时间：",__TIME__,"                   ******\r\n",
-  24          "******                    作者：lisongze                      ******\r\n",
-  25          "******                    欢迎访问作者的                      ******\r\n",
-  26          "******      BLOG：http://blog.csdn.net/songze_lee             ******\r\n",
-  27          "******      说明：优化电脑圈圈的USB鼠标                       ******\r\n",
-  28          "******                  请按K1-K8分别进行测试                 ******\r\n",
-  29          "******    K1:光标左移  K2:光标右移  K3:光标上移 K4:光标下移   ******\r\n",
-  30          "******    K5:滚轮下滚  K6:滚轮上滚  K7:鼠标左键 K8:鼠标右键   ******\r\n",
-  31          "********************************************************************\r\n",
-  32          };
-  33          
-  34          
-  35          /********************************************************************
-  36          函数功能：根据按键情况返回报告的函数。
-  37          入口参数：无。
-  38          返    回：无。
-  39          备    注：无。         
-  40          ********************************************************************/
-  41          void SendReport(void)
-  42          {
-  43   1       //我们不需要KEY1~KEY6按键改变的信息，所以先将它们清0
-  44   1       KeyUp &=~(KEY1|KEY2|KEY3|KEY4|KEY5|KEY6);
-  45   1       KeyDown &=~(KEY1|KEY2|KEY3|KEY4|KEY5|KEY6);
-  46   1       
-  47   1       //如果有按键按住，并且不是KEY7、KEY8（左、右键）
-  48   1       //或者KEY7、KEY8任何一个键有变动的话，则需要返回报告
-  49   1       if((KeyPress&(~(KEY7|KEY8)))||KeyUp||KeyDown)
-  50   1       {
-  51   2          if(KeyPress & KEY1) //如果KEY1按住，则光标需要左移，即X轴为负值。
-  52   2          {
-  53   3            Prints("key1 按下，光标左移\r\n");
-  54   3          }
-C51 COMPILER V9.56.0.0   MAIN                                                              09/17/2017 17:45:45 PAGE 2   
+  16          #include "include/pdiusbd12.h"
+  17          #include "include/UsbCore.h"
+  18          
+  19          
+  20          code uint8 HeadTable[][100]={
+  21          "********************************************************************\r\n",
+  22          "******                      USB鼠标                           ******\r\n",
+  23          "******                      AT89S52 CPU                       ******\r\n",
+  24          "******                  建立日期：",__DATE__,"                 ******\r\n",
+  25          "******                   建立时间：",__TIME__,"                   ******\r\n",
+  26          "******                    作者：lisongze                      ******\r\n",
+  27          "******                    欢迎访问作者的                      ******\r\n",
+  28          "******      BLOG：http://blog.csdn.net/songze_lee             ******\r\n",
+  29          "******      说明：优化电脑圈圈的USB鼠标                       ******\r\n",
+  30          "******                  请按K1-K8分别进行测试                 ******\r\n",
+  31          "******    K1:光标左移  K2:光标右移  K3:光标上移 K4:光标下移   ******\r\n",
+  32          "******    K5:滚轮下滚  K6:滚轮上滚  K7:鼠标左键 K8:鼠标右键   ******\r\n",
+  33          "********************************************************************\r\n",
+  34          };
+  35          
+  36          
+  37          /********************************************************************
+  38          函数功能：根据按键情况返回报告的函数。
+  39          入口参数：无。
+  40          返    回：无。
+  41          备    注：无。         
+  42          ********************************************************************/
+  43          void SendReport(void)
+  44          {
+  45   1       //我们不需要KEY1~KEY6按键改变的信息，所以先将它们清0
+  46   1       KeyUp &=~(KEY1|KEY2|KEY3|KEY4|KEY5|KEY6);
+  47   1       KeyDown &=~(KEY1|KEY2|KEY3|KEY4|KEY5|KEY6);
+  48   1       
+  49   1       //如果有按键按住，并且不是KEY7、KEY8（左、右键）
+  50   1       //或者KEY7、KEY8任何一个键有变动的话，则需要返回报告
+  51   1       if((KeyPress&(~(KEY7|KEY8)))||KeyUp||KeyDown)
+  52   1       {
+  53   2          if(KeyPress & KEY1) //如果KEY1按住，则光标需要左移，即X轴为负值。
+  54   2          {
+C51 COMPILER V9.56.0.0   MAIN                                                              09/17/2017 22:48:44 PAGE 2   
 
-  55   2          if(KeyPress & KEY2) //如果KEY2按住，则光标需要右移，即X轴为正值。
-  56   2          {
-  57   3            Prints("key2 按下，光标右移\r\n");
-  58   3          }
-  59   2          if(KeyPress & KEY3) //如果KEY3按住，则光标需要上移，即Y轴为负值。
-  60   2          {
-  61   3            Prints("key3 按下，光标上移\r\n");
-  62   3          }
-  63   2          if(KeyPress & KEY4)  //如果KEY4按住，则光标需要下移，即Y轴为正值。
-  64   2          {
-  65   3            Prints("key4 按下，光标下移\r\n");
-  66   3          }
-  67   2          if(KeyPress & KEY5)  //如果KEY5按住，则滚轮下滚，即滚轮值为负。
-  68   2          {
-  69   3            Prints("key5 按下，光标下滚\r\n");
-  70   3          }
-  71   2          if(KeyPress & KEY6)  //如果KEY6按住，则滚轮上滚，既滚轮值为正
-  72   2          {
-  73   3            Prints("key6 按下，光标上滚\r\n");
-  74   3          }
-  75   2          if(KeyPress & KEY7)  //鼠标左键
-  76   2          {
-  77   3            Prints("key7 按下，鼠标左键\r\n");
-  78   3          }
-  79   2          if(KeyPress & KEY8)  //鼠标右键
-  80   2          {
-  81   3            Prints("key8 按下，鼠标右键\r\n");
-  82   3          }
-  83   2       }
-  84   1        //记得清除KeyUp和KeyDown
-  85   1        KeyUp=0;
-  86   1        KeyDown=0;
-  87   1      }
-  88          ////////////////////////End of function//////////////////////////////
-  89          
-  90          
-  91          void display_info(void)
-  92          {
-  93   1        int i;
-  94   1      
-  95   1        for(i = 0; i < 17; i++)
-  96   1        {
-  97   2          Prints(HeadTable[i]);
-  98   2        }
-  99   1      }
- 100          
- 101          void main(void)
- 102          {
- 103   1        EA=1;           //打开中断
- 104   1        InitKeyboard(); //初始化按键
- 105   1        InitUART();     //初始化串口
- 106   1        display_info(); //显示信息
- 107   1      
- 108   1        while(1)
- 109   1        {
- 110   2          LEDs=~KeyPress;  //利用板上8个LED显示按键状态，按下时亮
- 111   2          SendReport();
- 112   2        }
- 113   1      }
+  55   3            Prints("key1 按下，光标左移\r\n");
+  56   3          }
+  57   2          if(KeyPress & KEY2) //如果KEY2按住，则光标需要右移，即X轴为正值。
+  58   2          {
+  59   3            Prints("key2 按下，光标右移\r\n");
+  60   3          }
+  61   2          if(KeyPress & KEY3) //如果KEY3按住，则光标需要上移，即Y轴为负值。
+  62   2          {
+  63   3            Prints("key3 按下，光标上移\r\n");
+  64   3          }
+  65   2          if(KeyPress & KEY4)  //如果KEY4按住，则光标需要下移，即Y轴为正值。
+  66   2          {
+  67   3            Prints("key4 按下，光标下移\r\n");
+  68   3          }
+  69   2          if(KeyPress & KEY5)  //如果KEY5按住，则滚轮下滚，即滚轮值为负。
+  70   2          {
+  71   3            Prints("key5 按下，光标下滚\r\n");
+  72   3          }
+  73   2          if(KeyPress & KEY6)  //如果KEY6按住，则滚轮上滚，既滚轮值为正
+  74   2          {
+  75   3            Prints("key6 按下，光标上滚\r\n");
+  76   3          }
+  77   2          if(KeyPress & KEY7)  //鼠标左键
+  78   2          {
+  79   3            Prints("key7 按下，鼠标左键\r\n");
+  80   3          }
+  81   2          if(KeyPress & KEY8)  //鼠标右键
+  82   2          {
+  83   3            Prints("key8 按下，鼠标右键\r\n");
+  84   3          }
+  85   2       }
+  86   1        //记得清除KeyUp和KeyDown
+  87   1        KeyUp=0;
+  88   1        KeyDown=0;
+  89   1      }
+  90          ////////////////////////End of function//////////////////////////////
+  91          
+  92          
+  93          void display_info(void)
+  94          {
+  95   1        int i;
+  96   1      
+  97   1        for(i = 0; i < 17; i++)
+  98   1        {
+  99   2          Prints(HeadTable[i]);
+ 100   2        }
+ 101   1      }
+ 102          
+ 103          int PDIUSBD12_detect(void)
+ 104          {
+ 105   1        uint16 id;
+ 106   1      
+ 107   1        id=D12ReadID();
+ 108   1        Prints("Your D12 chip\'s ID is: ");
+ 109   1        PrintShortIntHex(id);
+ 110   1        if(id == 0x1012)
+ 111   1        {
+ 112   2          Prints(". ID is correrct!\r\n\r\n");
+ 113   2        }
+ 114   1        else
+ 115   1        {
+ 116   2          Prints(". ID is incorrerct!\r\n\r\n");
+C51 COMPILER V9.56.0.0   MAIN                                                              09/17/2017 22:48:44 PAGE 3   
+
+ 117   2          return -1;
+ 118   2        }
+ 119   1      
+ 120   1        return 0;
+ 121   1      }
+ 122          
+ 123          /********************************************************************
+ 124          函数功能：USB中断处理函数。
+ 125          入口参数：无。
+ 126          返    回：无。
+ 127          备    注：无。         
+ 128          ********************************************************************/
+ 129          void PDIUSBD12_interrupt_handle(void)
+ 130          {
+ 131   1        uint8 InterruptSource;
+ 132   1      
+ 133   1        D12WriteCommand(READ_INTERRUPT_REGISTER); //写读中断寄存器的命令
+ 134   1        InterruptSource = D12ReadByte();          //读回第一字节的中断寄存器
+ 135   1        if(InterruptSource&0x80)UsbBusSuspend();  //总线挂起中断处理
+ 136   1        if(InterruptSource&0x40)UsbBusReset();    //总线复位中断处理
+ 137   1        if(InterruptSource&0x01)UsbEp0Out();      //端点0输出中断处理
+ 138   1        if(InterruptSource&0x02)UsbEp0In();       //端点0输入中断处理
+ 139   1        if(InterruptSource&0x04)UsbEp1Out();      //端点1输出中断处理
+ 140   1        if(InterruptSource&0x08)UsbEp1In();       //端点1输入中断处理
+ 141   1        if(InterruptSource&0x10)UsbEp2Out();      //端点2输出中断处理
+ 142   1        if(InterruptSource&0x20)UsbEp2In();       //端点2输入中断处理
+ 143   1      }
+ 144          
+ 145          void main(void)
+ 146          {
+ 147   1        EA=1;                 //打开中断
+ 148   1        InitKeyboard();       //初始化按键
+ 149   1        InitUART();           //初始化串口
+ 150   1        display_info();       //显示信息
+ 151   1        PDIUSBD12_detect();   //识别芯片
+ 152   1      
+ 153   1        UsbDisconnect();      //先断开USB连接
+ 154   1        UsbConnect();         //将USB连接上
+ 155   1        while(1)
+ 156   1        {
+ 157   2          if(D12GetIntPin() == 0) //如果有中断发生 低电平有效
+ 158   2          {
+ 159   3            PDIUSBD12_interrupt_handle();
+ 160   3          }
+ 161   2          LEDs=~KeyPress;  //利用板上8个LED显示按键状态，按下时亮
+ 162   2          SendReport();
+ 163   2        }
+ 164   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-C51 COMPILER V9.56.0.0   MAIN                                                              09/17/2017 17:45:45 PAGE 3   
-
-   CODE SIZE        =    228    ----
-   CONSTANT SIZE    =   1932    ----
+   CODE SIZE        =    380    ----
+   CONSTANT SIZE    =   2002    ----
    XDATA SIZE       =   ----    ----
    PDATA SIZE       =   ----    ----
-   DATA SIZE        =   ----       2
+   DATA SIZE        =   ----       5
    IDATA SIZE       =   ----    ----
    BIT SIZE         =   ----    ----
 END OF MODULE INFORMATION.
