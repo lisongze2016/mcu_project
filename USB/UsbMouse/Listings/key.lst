@@ -1,0 +1,142 @@
+C51 COMPILER V9.56.0.0   KEY                                                               09/17/2017 17:45:46 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE KEY
+OBJECT MODULE PLACED IN .\Objects\key.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE src\key.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\k
+                    -ey.lst) TABS(2) OBJECT(.\Objects\key.obj)
+
+line level    source
+
+   1          /******************************************************************
+   2             本程序只供学习使用，未经作者许可，不得用于其它任何用途
+   3          
+   4                  欢迎访问我的USB专区：http://group.ednchina.com/93/
+   5                  欢迎访问我的blog：   http://www.ednchina.com/blog/computer00
+   6                                       http://computer00.21ic.org
+   7          
+   8                  感谢PCB赞助商——电子园： http://bbs.cepark.com/
+   9          
+  10          KEY.C  file
+  11          
+  12          作者：电脑圈圈
+  13          建立日期: 2008.06.27
+  14          修改日期: 2008.06.27
+  15          版本：V1.2
+  16          版权所有，盗版必究。
+  17          Copyright(C) 电脑圈圈 2008-2018
+  18          All rights reserved            
+  19          *******************************************************************/
+  20          
+  21          
+  22          #include "include/Key.h"
+  23          #include "include/MyType.h"
+  24          #include "include/config.h"
+  25          
+  26          volatile uint8 idata KeyCurrent,KeyOld,KeyNoChangedTime;
+  27          volatile uint8 idata KeyPress;
+  28          volatile uint8 idata KeyDown,KeyUp,KeyLast;
+  29          
+  30          volatile uint8 KeyCanChange;
+  31          
+  32          /********************************************************************
+  33          函数功能：定时器0初始化，用来做键盘扫描。
+  34          入口参数：无。
+  35          返    回：无。
+  36          备    注：无。
+  37          ********************************************************************/
+  38          void InitTimer0(void)
+  39          {
+  40   1       TMOD&=0xF0;
+  41   1       TMOD|=0x01;
+  42   1       ET0=1;
+  43   1       TR0=1;
+  44   1      }
+  45          /*******************************************************************/
+  46          
+  47          
+  48          /********************************************************************
+  49          函数功能：键盘初始化
+  50          入口参数：无。
+  51          返    回：无。
+  52          备    注：无。
+  53          ********************************************************************/
+  54          void InitKeyboard(void)
+C51 COMPILER V9.56.0.0   KEY                                                               09/17/2017 17:45:46 PAGE 2   
+
+  55          {
+  56   1       KeyIO=0xFF;    //键盘对应的口设置为输入状态
+  57   1       KeyPress=0;        //无按键按下
+  58   1       KeyNoChangedTime=0;
+  59   1       KeyOld=0;
+  60   1       KeyCurrent=0;
+  61   1       KeyLast=0;
+  62   1       KeyDown=0;
+  63   1       KeyUp=0;
+  64   1       InitTimer0();      //初始化定时器
+  65   1       KeyCanChange=1;    //允许键值改变
+  66   1      }
+  67          /*******************************************************************/
+  68          
+  69          /********************************************************************
+  70          函数功能：定时器0中断处理。
+  71          入口参数：无。
+  72          返    回：无。
+  73          备    注：22.1184M晶体约5ms中断一次。
+  74          ********************************************************************/
+  75          void Timer0Isr(void) interrupt 1
+  76          { 
+  77   1      //定时器0重装，定时间隔为5ms，加15是为了修正重装所花费时间
+  78   1      //这个值可以通过软件仿真来确定，在这里设置断点，调整使两次运行
+  79   1      //时间差刚好为5ms即可。
+  80   1       TH0=(65536-Fclk/1000/12*5+15)/256;  
+  81   1       TL0=(65536-Fclk/1000/12*5+15)%256;   // 
+  82   1      
+  83   1       if(!KeyCanChange)return;     //如果正在处理按键，则不再扫描键盘 
+  84   1      
+  85   1       //开始键盘扫描
+  86   1       //保存按键状态到当前按键情况
+  87   1       //KeyCurrent总共有8个bit
+  88   1       //当某个开关按下时，对应的bit为1
+  89   1       KeyCurrent=GetKeyValue(); //读取键值，GetKeyValue()其实是个宏，不是函数，
+  90   1                                 //这里故意写成函数的样子，美观。它的定义在
+  91   1                                 //key.h文件中
+  92   1      
+  93   1       if(KeyCurrent!=KeyOld)  //如果两次值不等，说明按键情况发生了改变
+  94   1       {
+  95   2        KeyNoChangedTime=0;       //键盘按下时间为0
+  96   2        KeyOld=KeyCurrent;        //保存当前按键情况
+  97   2        return;  //返回
+  98   2       }
+  99   1       else
+ 100   1       {
+ 101   2        KeyNoChangedTime++;      //按下时间累计
+ 102   2        if(KeyNoChangedTime>=1)  //如果按下时间足够
+ 103   2        {
+ 104   3          KeyNoChangedTime=1;
+ 105   3          KeyPress=KeyOld;      //保存按键
+ 106   3          KeyDown|=(~KeyLast)&(KeyPress); //求出新按下的键
+ 107   3          KeyUp|=KeyLast&(~KeyPress);     //求出新释放的键
+ 108   3          KeyLast=KeyPress;            //保存当前按键情况
+ 109   3        }
+ 110   2       }
+ 111   1      }
+ 112          /*******************************************************************/
+ 113          
+ 114          
+
+
+C51 COMPILER V9.56.0.0   KEY                                                               09/17/2017 17:45:46 PAGE 3   
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    137    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      1    ----
+   IDATA SIZE       =      7    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

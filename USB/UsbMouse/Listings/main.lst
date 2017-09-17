@@ -1,0 +1,141 @@
+C51 COMPILER V9.56.0.0   MAIN                                                              09/17/2017 17:45:45 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE src\main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\
+                    -main.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          /*
+   2          * USB 鼠标
+   3          * 串口工具请用utf-8编码格式
+   4          *
+   5          * Version       Date        Author        Description
+   6          * V1.0        2008-06-27    电脑圈圈        created
+   7          * V1.2        2008-07-10    电脑圈圈
+   8          * V1.3        2017-09-17    lisongze
+   9          */
+  10          
+  11          
+  12          #include <reg52.h>
+  13          #include "include/uart.h"
+  14          #include "include/key.h"
+  15          #include "include/led.h"
+  16          
+  17          
+  18          code uint8 HeadTable[][100]={
+  19          "********************************************************************\r\n",
+  20          "******                      USB鼠标                           ******\r\n",
+  21          "******                      AT89S52 CPU                       ******\r\n",
+  22          "******                  建立日期：",__DATE__,"                 ******\r\n",
+  23          "******                   建立时间：",__TIME__,"                   ******\r\n",
+  24          "******                    作者：lisongze                      ******\r\n",
+  25          "******                    欢迎访问作者的                      ******\r\n",
+  26          "******      BLOG：http://blog.csdn.net/songze_lee             ******\r\n",
+  27          "******      说明：优化电脑圈圈的USB鼠标                       ******\r\n",
+  28          "******                  请按K1-K8分别进行测试                 ******\r\n",
+  29          "******    K1:光标左移  K2:光标右移  K3:光标上移 K4:光标下移   ******\r\n",
+  30          "******    K5:滚轮下滚  K6:滚轮上滚  K7:鼠标左键 K8:鼠标右键   ******\r\n",
+  31          "********************************************************************\r\n",
+  32          };
+  33          
+  34          
+  35          /********************************************************************
+  36          函数功能：根据按键情况返回报告的函数。
+  37          入口参数：无。
+  38          返    回：无。
+  39          备    注：无。         
+  40          ********************************************************************/
+  41          void SendReport(void)
+  42          {
+  43   1       //我们不需要KEY1~KEY6按键改变的信息，所以先将它们清0
+  44   1       KeyUp &=~(KEY1|KEY2|KEY3|KEY4|KEY5|KEY6);
+  45   1       KeyDown &=~(KEY1|KEY2|KEY3|KEY4|KEY5|KEY6);
+  46   1       
+  47   1       //如果有按键按住，并且不是KEY7、KEY8（左、右键）
+  48   1       //或者KEY7、KEY8任何一个键有变动的话，则需要返回报告
+  49   1       if((KeyPress&(~(KEY7|KEY8)))||KeyUp||KeyDown)
+  50   1       {
+  51   2          if(KeyPress & KEY1) //如果KEY1按住，则光标需要左移，即X轴为负值。
+  52   2          {
+  53   3            Prints("key1 按下，光标左移\r\n");
+  54   3          }
+C51 COMPILER V9.56.0.0   MAIN                                                              09/17/2017 17:45:45 PAGE 2   
+
+  55   2          if(KeyPress & KEY2) //如果KEY2按住，则光标需要右移，即X轴为正值。
+  56   2          {
+  57   3            Prints("key2 按下，光标右移\r\n");
+  58   3          }
+  59   2          if(KeyPress & KEY3) //如果KEY3按住，则光标需要上移，即Y轴为负值。
+  60   2          {
+  61   3            Prints("key3 按下，光标上移\r\n");
+  62   3          }
+  63   2          if(KeyPress & KEY4)  //如果KEY4按住，则光标需要下移，即Y轴为正值。
+  64   2          {
+  65   3            Prints("key4 按下，光标下移\r\n");
+  66   3          }
+  67   2          if(KeyPress & KEY5)  //如果KEY5按住，则滚轮下滚，即滚轮值为负。
+  68   2          {
+  69   3            Prints("key5 按下，光标下滚\r\n");
+  70   3          }
+  71   2          if(KeyPress & KEY6)  //如果KEY6按住，则滚轮上滚，既滚轮值为正
+  72   2          {
+  73   3            Prints("key6 按下，光标上滚\r\n");
+  74   3          }
+  75   2          if(KeyPress & KEY7)  //鼠标左键
+  76   2          {
+  77   3            Prints("key7 按下，鼠标左键\r\n");
+  78   3          }
+  79   2          if(KeyPress & KEY8)  //鼠标右键
+  80   2          {
+  81   3            Prints("key8 按下，鼠标右键\r\n");
+  82   3          }
+  83   2       }
+  84   1        //记得清除KeyUp和KeyDown
+  85   1        KeyUp=0;
+  86   1        KeyDown=0;
+  87   1      }
+  88          ////////////////////////End of function//////////////////////////////
+  89          
+  90          
+  91          void display_info(void)
+  92          {
+  93   1        int i;
+  94   1      
+  95   1        for(i = 0; i < 17; i++)
+  96   1        {
+  97   2          Prints(HeadTable[i]);
+  98   2        }
+  99   1      }
+ 100          
+ 101          void main(void)
+ 102          {
+ 103   1        EA=1;           //打开中断
+ 104   1        InitKeyboard(); //初始化按键
+ 105   1        InitUART();     //初始化串口
+ 106   1        display_info(); //显示信息
+ 107   1      
+ 108   1        while(1)
+ 109   1        {
+ 110   2          LEDs=~KeyPress;  //利用板上8个LED显示按键状态，按下时亮
+ 111   2          SendReport();
+ 112   2        }
+ 113   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+C51 COMPILER V9.56.0.0   MAIN                                                              09/17/2017 17:45:45 PAGE 3   
+
+   CODE SIZE        =    228    ----
+   CONSTANT SIZE    =   1932    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       2
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
