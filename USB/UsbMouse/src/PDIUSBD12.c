@@ -136,10 +136,10 @@ void D12ClearBuffer(void)
 ********************************************************************/
 void D12AcknowledgeSetup(void)
 {
- D12SelectEndpoint(1); //选择端点0输入
- D12WriteCommand(D12_ACKNOWLEDGE_SETUP); //发送应答设置到端点0输入
- D12SelectEndpoint(0); //选择端点0输出
- D12WriteCommand(D12_ACKNOWLEDGE_SETUP); //发送应答设置到端点0输出
+	D12SelectEndpoint(1); //选择端点0输入
+	D12WriteCommand(D12_ACKNOWLEDGE_SETUP); //发送应答设置到端点0输入
+	D12SelectEndpoint(0); //选择端点0输出
+	D12WriteCommand(D12_ACKNOWLEDGE_SETUP); //发送应答设置到端点0输出
 }
 ////////////////////////End of function//////////////////////////////
 
@@ -151,41 +151,41 @@ void D12AcknowledgeSetup(void)
 ********************************************************************/
 uint8 D12ReadEndpointBuffer(uint8 Endp, uint8 Len, uint8 *Buf)
 {
- uint8 i,j;
- D12SelectEndpoint(Endp); //选择要操作的端点缓冲
- D12WriteCommand(D12_READ_BUFFER); //发送读缓冲区的命令
- D12ReadByte();   //该字节数据是保留的，不用。
- j=D12ReadByte(); //这里才是实际的接收到的数据长度
- if(j>Len) //如果要读的字节数比实际接收到的数据长
- {
-  j=Len;  //则只读指定的长度数据
- }
+	uint8 i,j;
+	D12SelectEndpoint(Endp); //选择要操作的端点缓冲
+	D12WriteCommand(D12_READ_BUFFER); //发送读缓冲区的命令
+	D12ReadByte();   //该字节数据是保留的，不用。
+	j=D12ReadByte(); //这里才是实际的接收到的数据长度
+	if(j>Len) //如果要读的字节数比实际接收到的数据长
+	{
+		j=Len;  //则只读指定的长度数据
+	}
 #ifdef DEBUG1 //如果定义了DEBUG1，则需要显示调试信息
- Prints("读端点");
- PrintLongInt(Endp/2); //端点号。由于D12特殊的端点组织形式，
+	Prints("读端点");
+	PrintLongInt(Endp/2); //端点号。由于D12特殊的端点组织形式，
                        //这里的0和1分别表示端点0的输出和输入；
                        //而2、3分别表示端点1的输出和输入；
                        //3、4分别表示端点2的输出和输入。
                        //因此要除以2才显示对应的端点。
- Prints("缓冲区");
- PrintLongInt(j);      //实际读取的字节数
- Prints("字节。\r\n");
+	Prints("缓冲区");
+	PrintLongInt(j);      //实际读取的字节数
+	Prints("字节。\r\n");
 #endif
- for(i=0;i<j;i++)
- {
-  //这里不直接调用读一字节的函数，而直接在这里模拟时序，可以节省时间
-  D12ClrRd();  //RD置低
-  *(Buf+i)=D12GetData(); //读一字节数据
-  D12SetRd();  //RD置高
+	for(i=0;i<j;i++)
+	{
+		//这里不直接调用读一字节的函数，而直接在这里模拟时序，可以节省时间
+		D12ClrRd();  //RD置低
+		*(Buf+i)=D12GetData(); //读一字节数据
+		D12SetRd();  //RD置高
 #ifdef DEBUG1
-  PrintHex(*(Buf+i)); //如果需要显示调试信息，则显示读到的数据
-  if(((i+1)%16)==0)Prints("\r\n"); //每16字节换行一次
+		PrintHex(*(Buf+i)); //如果需要显示调试信息，则显示读到的数据
+		if(((i+1)%16)==0)Prints("\r\n"); //每16字节换行一次
 #endif
- }
+	}
 #ifdef DEBUG1
- if((j%16)!=0)Prints("\r\n"); //换行。
+	if((j%16)!=0)Prints("\r\n"); //换行。
 #endif
- return j; //返回实际读取的字节数。
+	return j; //返回实际读取的字节数。
 }
 ////////////////////////End of function//////////////////////////////
 

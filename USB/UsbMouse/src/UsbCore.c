@@ -3,6 +3,8 @@
 #include "include/uart.h"
 #include "include/usbcore.h"
 
+idata uint8 Buffer[16];  //读端点0用的缓冲区
+
 /********************************************************************
 函数功能：延时x毫秒函数。
 入口参数：x：延时的毫秒数。
@@ -134,7 +136,20 @@ void UsbBusReset(void)
 void UsbEp0Out(void)
 {
 #ifdef DEBUG0
- Prints("USB端点0输出中断。\r\n");
+	Prints("USB端点0输出中断。Host -> Device\r\n");
+	//读取端点0输出最后传输状态，该操作清除中断标志
+	//并判断第5位是否为1，如果是，则说明是建立包
+	if(D12ReadEndpointLastStatus(0)&0x20)
+	{
+		D12ReadEndpointBuffer(0,16,Buffer); //读建立过程数据
+		D12AcknowledgeSetup(); //应答建立包
+		D12ClearBuffer(); //清缓冲区
+	}
+	else		//普通数据输出
+	{
+		D12ReadEndpointBuffer(0,16,Buffer);
+		D12ClearBuffer();
+	}
 #endif
 }
 ////////////////////////End of function//////////////////////////////
