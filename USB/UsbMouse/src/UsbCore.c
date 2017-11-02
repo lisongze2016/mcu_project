@@ -2,8 +2,71 @@
 #include "include/pdiusbd12.h"
 #include "include/uart.h"
 #include "include/usbcore.h"
+#include "include/ch9.h"
 
-idata uint8 Buffer[16];  //读端点0用的缓冲区
+idata uint8 Buffer[16];  	//读端点0用的缓冲区
+uint8 * pSendData;				//当前发送数据的位置
+uint16 SendLength;				//需要发送数据的长度
+//是否需要发送0数据包的标志。在USB控制传输的数据过程中，
+//当返回的数据包字节数少于最大包长时，会认为数据过程结束。
+//当请求的字节数比实际需要返回的字节数长，而实际返回的字节
+//数又刚好是端点0大小的整数倍时，就需要返回一个0长度的数据包
+//来结束数据过程。因此这里增加一个标志，供程序决定是否需要返回
+//一个0长度的数据包。
+uint8 NeedZeroPacket;
+
+code struct usb_device_descriptor DeviceDescriptor = {
+#if 0
+	.bLength 						= USB_DT_DEVICE_SIZE,
+	.bDescriptorType 		= 0x01,
+	.bcdUSB 						= swab16(0x0110),
+	.bDeviceClass				= 0,
+	.bDeviceSubClass		= 0,
+	.bDeviceProtocol		= 0,
+	.bMaxPacketSize0		= 16,
+	.idVendor						= swab16(0x8888),
+	.idProduct					= swab16(0x0001),
+	.bcdDevice					= swab16(0x0100),
+	.iManufacturer			= 1,
+	.iProduct						= 2,
+	.iSerialNumber			= 3,
+	.bNumConfigurations = 1,
+#endif
+
+	//bLength 该描述符的长度，设备描述符长度为18字节
+	USB_DT_DEVICE_SIZE,
+	//bDescriptorType 该描述符的类型，设备描述符的类型编号为0x01
+	0x01,
+	//bcdUSB 该设备所使用的USB协议版本，小端结构(__le16),USB版本USB1.1，即0x0110，低字节在前0x1001
+	swab16(0x0110),
+	//bDeviceClass 设备所使用的类代码，对于大多数标准的设备类，该字段设为0，bDeviceClass为0时，bDeviceSubClass也必须为0，bDeviceClass为0xff时，表示厂商自定义设备类
+	0,
+	//bDeviceSubClass 设备使用的子类代码
+	0,
+	//bDeviceProtocol 设备使用的协议代码，协议代码由USB协会规定，0：设备不使用类所定义的协议，FF：厂商自定义协议
+	0,
+	//bMaxPacketSize0 端点0的最大包长，可取值8，16，32，64
+	16,
+	//idVendor 厂商ID号，该ID号由USB协会分配，小端结构(__le16),这里设置为0x8888
+	swab16(0x8888),
+	//idProduct 产品ID号，小端结构(__le16),0x0001
+	swab16(0x0001),
+	//bcdDevice 设备版本号，小端结构(__le16),v1.0 0x0100
+	swab16(0x0100),
+	//iManufacturer 厂商字符串的索引值1
+	1,
+	//iProduct 产品字符串的索引值2
+	2,
+	//iSerialNumber 设备序列号字符串的索引值3
+	3,
+	//bNumConfigurations 表示设备有多少种配置，每种配置都会有一个配置描述符，主机通过设置配置来选择某一种配置，大部分USB设置只有一种配置，即该字段为1
+	1
+};
+
+
+
+
+
 
 /********************************************************************
 函数功能：延时x毫秒函数。
@@ -127,6 +190,233 @@ void UsbBusReset(void)
 }
 ////////////////////////End of function//////////////////////////////
 
+
+
+/********************************************************************
+函数功能：根据pData和SendLength将数据发送到端点0的函数。
+入口参数：无。
+返    回：无。
+备    注：无。
+********************************************************************/
+void UsbEp0SendData(void)
+{
+	//将数据写到端点中去准备发送
+	//写之前要先判断一下需要发送的数据是否比端点0
+	//最大长度大，如果超过端点大小，则一次只能发送
+	//最大包长的数据。端点0的最大包长在DeviceDescriptor.bMaxPacketSize0
+	if(SendLength > DeviceDescriptor.bMaxPacketSize0) {
+		//按最大包长度发送
+		D12WriteEndpointBuffer(1,DeviceDescriptor.bMaxPacketSize0,pSendData);
+		//发送后剩余字节数减少最大包长
+		SendLength -= DeviceDescriptor.bMaxPacketSize0;
+		//发送一次后指针位置要调整
+		pSendData += DeviceDescriptor.bMaxPacketSize0;
+ } else {
+		if(SendLength != 0) {
+			//不够最大包长，可以直接发送
+			D12WriteEndpointBuffer(1,SendLength,pSendData);
+			//发送完毕后，SendLength长度变为0
+			SendLength=0;
+	} else { //如果要发送的数据包长度为0
+		if(NeedZeroPacket==1) {//如果需要发送0长度数据
+			D12WriteEndpointBuffer(1,0,pSendData); //发送0长度数据包
+			NeedZeroPacket=0; //清需要发送0长度数据包标志
+   }
+  }
+ }
+}
+////////////////////////End of function//////////////////////////////
+
+struct usb_ctrlrequest request;
+
+void parse_request(char *Buffer)
+{
+	//将缓冲数据填到设备请求的各字段中
+	request.bmRequestType=Buffer[0];
+	request.bRequest=Buffer[1];
+	request.wValue=Buffer[2]+(((uint16)Buffer[3])<<8);
+	request.wIndex=Buffer[4]+(((uint16)Buffer[5])<<8);
+	request.wLength=Buffer[6]+(((uint16)Buffer[7])<<8);
+
+	//下面的代码判断具体的请求，并根据不同的请求进行相关操作
+  //如果D7位为1，则说明是输入请求
+  if((request.bmRequestType&0x80)==0x80){
+		//根据bmRequestType的D6~5位散转，D6~5位表示请求的类型
+		//0为标准请求，1为类请求，2为厂商请求。
+		switch((request.bmRequestType>>5)&0x03){
+			case 0:  //标准请求
+				#ifdef DEBUG0
+				Prints("USB标准输入请求：");
+				#endif
+				//USB协议定义了几个标准输入请求，我们实现这些标准请求即可
+				//请求的代码在bRequest中，对不同的请求代码进行散转
+				//事实上，我们还需要对接收者进行散转，因为不同的请求接收者
+				//是不一样的。接收者在bmRequestType的D4~D0位中定义。
+				//我们这里为了简化操作，有些就省略了对接收者的判断。
+				//例如获取描述符的请求，只根据描述符的类型来区别。
+				switch(request.bRequest){
+					case USB_REQ_GET_CONFIGURATION: //获取配置
+						#ifdef DEBUG0
+						Prints("获取配置。\r\n");
+						#endif
+						break;
+					case USB_REQ_GET_DESCRIPTOR:  //获取描述符
+						#ifdef DEBUG0
+						Prints("获取描述符——");
+						#endif
+						//对描述符类型进行散转，对于全速设备和低速设备，
+						//标准请求只支持发送到设备的设备、配置、字符串三种描述符
+						//wValue域的第一个字节(低字节)表示索引号，用来选择同一种描述符中的具体某个描述符
+						//第二个字节表示描述符的类型编号
+						switch((request.wValue>>8)&0xFF){
+							case DEVICE_DESCRIPTOR: //设备描述符
+								#ifdef DEBUG0
+								Prints("设备描述符。\r\n");
+								#endif
+								pSendData=(uint8 *)&DeviceDescriptor;  //需要发送的数据
+								//判断请求的字节数是否比实际需要发送的字节数多
+								//这里请求的是设备描述符，因此数据长度就是
+								//DeviceDescriptor[0]。如果请求的比实际的长，
+								//那么只返回实际长度的数据
+								if(request.wLength>DeviceDescriptor.bLength){
+									SendLength = DeviceDescriptor.bLength;
+									if(SendLength%DeviceDescriptor.bMaxPacketSize0 == 0) { //并且刚好是整数个数据包时
+										NeedZeroPacket=1; //需要返回0长度的数据包
+									}
+								} else {
+									SendLength = request.wLength;
+								}
+								//将数据通过EP0返回
+								UsbEp0SendData();
+								break;
+							case CONFIGURATION_DESCRIPTOR:  //配置描述符
+								#ifdef DEBUG0
+								Prints("配置描述符。\r\n");
+								#endif
+								break;
+							case STRING_DESCRIPTOR:  //字符串描述符
+								#ifdef DEBUG0
+								Prints("字符串描述符");
+								#endif
+								break;
+							default:  //其它描述符
+								#ifdef DEBUG0
+								Prints("其他描述符，描述符代码：");
+								PrintHex((request.wValue>>8)&0xFF);
+								Prints("\r\n");
+								#endif
+								break;
+						}
+						break;
+					case USB_REQ_GET_INTERFACE: //获取接口
+						#ifdef DEBUG0
+						Prints("获取接口。\r\n");
+						#endif
+						break;
+					case USB_REQ_GET_STATUS: //获取状态
+						#ifdef DEBUG0
+						Prints("获取状态。\r\n");
+						#endif
+						break;
+					case USB_REQ_SYNCH_FRAME: //同步帧
+						#ifdef DEBUG0
+						Prints("同步帧。\r\n");
+						#endif
+						break;
+					default:  //未定义的标准请求
+						#ifdef DEBUG0
+						Prints("错误：未定义的标准输入请求。\r\n");
+						#endif
+						break;
+				}
+				break;
+			case 1:  //类请求
+				#ifdef DEBUG0
+				Prints("USB类输入请求：\r\n");
+				#endif
+				break;
+			case 2:  //厂商请求
+				#ifdef DEBUG0
+				Prints("USB厂商输入请求：\r\n");
+				#endif
+				break;
+			default: //未定义的请求。这里只显示一个报错信息。
+				#ifdef DEBUG0
+				Prints("错误：未定义的输入请求。\r\n");
+				#endif
+				break;
+		}
+	} else {		//否则说明是输出请求
+		//根据bmRequestType的D6~5位散转，D6~5位表示请求的类型
+		//0为标准请求，1为类请求，2为厂商请求。
+		switch((request.bmRequestType>>5)&0x03) {
+			case 0:  //标准请求
+				#ifdef DEBUG0
+				Prints("USB标准输出请求：");
+				#endif
+				//USB协议定义了几个标准输出请求，我们实现这些标准请求即可
+				//请求的代码在bRequest中，对不同的请求代码进行散转
+				switch(request.bRequest) {
+					case USB_REQ_CLEAR_FEATURE: //清除特性
+						#ifdef DEBUG0
+						Prints("清除特性。\r\n");
+						#endif
+						break;
+					case USB_REQ_SET_ADDRESS:  //设置地址
+						#ifdef DEBUG0
+						Prints("设置地址。\r\n");
+						#endif
+						break;
+					case USB_REQ_SET_CONFIGURATION: //设置配置
+						#ifdef DEBUG0
+						Prints("设置配置。\r\n");
+						#endif
+						break;
+					case USB_REQ_SET_DESCRIPTOR: //设置描述符
+						#ifdef DEBUG0
+						Prints("设置描述符。\r\n");
+						#endif
+						break;
+
+					case USB_REQ_SET_FEATURE: //设置特性
+						#ifdef DEBUG0
+						Prints("设置特性。\r\n");
+						#endif
+						break;
+
+					case USB_REQ_SET_INTERFACE: //设置接口
+						#ifdef DEBUG0
+						Prints("设置接口。\r\n");
+						#endif
+						break;
+
+					default:  //未定义的标准请求
+						#ifdef DEBUG0
+						Prints("错误：未定义的标准输出请求。\r\n");
+						#endif
+						break;
+				}
+				break;
+			case 1:  //类请求
+				#ifdef DEBUG0
+				Prints("USB类输出请求：");
+				#endif
+				break;
+			case 2:  //厂商请求
+				#ifdef DEBUG0
+				Prints("USB厂商输出请求：\r\n");
+				#endif
+				break;
+
+			default: //未定义的请求。这里只显示一个报错信息。
+				#ifdef DEBUG0
+				Prints("错误：未定义的输出请求。\r\n");
+				#endif
+				break;
+		}
+	}
+}
+
 /********************************************************************
 函数功能：端点0输出中断处理函数。
 入口参数：无。
@@ -144,6 +434,9 @@ void UsbEp0Out(void)
 		D12ReadEndpointBuffer(0,16,Buffer); //读建立过程数据
 		D12AcknowledgeSetup(); //应答建立包
 		D12ClearBuffer(); //清缓冲区
+
+		//解析主机对设备的请求
+		parse_request(Buffer);
 	}
 	else		//普通数据输出
 	{
@@ -158,13 +451,17 @@ void UsbEp0Out(void)
 函数功能：端点0输入中断处理函数。
 入口参数：无。
 返    回：无。
-备    注：无。
+备    注：当数据成功发送后，端点0输入中断就会产生，在这里发送剩下的数据
 ********************************************************************/
 void UsbEp0In(void)
 {
 #ifdef DEBUG0
- Prints("USB端点0输入中断。\r\n");
+	Prints("USB端点0输入中断。\r\n");
 #endif
+	//读最后发送状态，这将清除端点0的中断标志位
+	D12ReadEndpointLastStatus(1);
+	//发送剩余的字节数
+	UsbEp0SendData();
 }
 ////////////////////////End of function//////////////////////////////
 
