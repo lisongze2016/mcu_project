@@ -252,11 +252,15 @@ uint8 D12WriteEndpointBuffer(uint8 Endp,uint8 Len,uint8 * Buf)
 入口参数：Addr：要设置的地址值。
 返    回：无。
 备    注：无。
+Set Address/Enable命令为0xD0，数据写1字节
+该命令用于设置 USB 分配的地址和使能功能
+数据D7位：控制设备是否使能，置1使能该功能
+D6~D0位：设备的7位地址
 ********************************************************************/
 void D12SetAddress(uint8 Addr)
 {
- D12WriteCommand(D12_SET_ADDRESS_ENABLE); //写设置地址命令
- D12WriteByte(0x80 | Addr); //写一字节数据：使能及地址
+	D12WriteCommand(D12_SET_ADDRESS_ENABLE);	//写设置地址命令
+	D12WriteByte(0x80 | Addr); 					//写一字节数据：使能及地址
 }
 ////////////////////////End of function//////////////////////////////
 

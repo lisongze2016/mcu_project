@@ -211,19 +211,19 @@ void UsbEp0SendData(void)
 		SendLength -= DeviceDescriptor.bMaxPacketSize0;
 		//发送一次后指针位置要调整
 		pSendData += DeviceDescriptor.bMaxPacketSize0;
- } else {
+	} else {
 		if(SendLength != 0) {
 			//不够最大包长，可以直接发送
 			D12WriteEndpointBuffer(1,SendLength,pSendData);
 			//发送完毕后，SendLength长度变为0
 			SendLength=0;
-	} else { //如果要发送的数据包长度为0
-		if(NeedZeroPacket==1) {//如果需要发送0长度数据
-			D12WriteEndpointBuffer(1,0,pSendData); //发送0长度数据包
-			NeedZeroPacket=0; //清需要发送0长度数据包标志
-   }
-  }
- }
+		} else { //如果要发送的数据包长度为0
+			if(NeedZeroPacket==1) {//如果需要发送0长度数据
+				D12WriteEndpointBuffer(1,0,pSendData); //发送0长度数据包
+				NeedZeroPacket=0; //清需要发送0长度数据包标志
+			}
+		}
+	}
 }
 ////////////////////////End of function//////////////////////////////
 
@@ -364,8 +364,16 @@ void parse_request(char *Buffer)
 						break;
 					case USB_REQ_SET_ADDRESS:  //设置地址
 						#ifdef DEBUG0
-						Prints("设置地址。\r\n");
+						Prints("设置地址。地址为：");
+						PrintHex(request.wValue&0xFF); //显示所设置的地址
+						Prints("\r\n");
 						#endif
+						D12SetAddress(request.wValue&0xFF); //wValue中的低字节是设置的地址值
+						//设置地址没有数据过程，直接进入到状态过程，返回一个0长度的数据包
+						SendLength = 0;
+						NeedZeroPacket = 1;
+						//将数据通过EP0返回
+						UsbEp0SendData();
 						break;
 					case USB_REQ_SET_CONFIGURATION: //设置配置
 						#ifdef DEBUG0
