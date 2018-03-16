@@ -105,6 +105,7 @@ struct usb_ctrlrequest {
 
 /*单片机是8位，不需要考虑字节对齐*/
 
+/*-------------------------------------------------------------------------*/
 /* USB_DT_DEVICE: Device descriptor */
 struct usb_device_descriptor {
 	__u8  bLength;							//该描述符的长度，设备描述符长度为18字节
@@ -126,5 +127,95 @@ struct usb_device_descriptor {
 
 #define USB_DT_DEVICE_SIZE		18
 
+/*-------------------------------------------------------------------------*/
 
+/* USB_DT_CONFIG: Configuration descriptor information. */
+struct usb_config_descriptor {
+	__u8  bLength;				//该描述符的长度(9字节)
+	__u8  bDescriptorType;		//描述符类型，配置描述符为0x02
+
+	__u16 wTotalLength;			//配置描述符集合总长度，小端结构(__le16)
+	__u8  bNumInterfaces;		//该配置所支持的接口数
+	__u8  bConfigurationValue;	//该配置的值
+	__u8  iConfiguration;		//描述该配置的字符串的索引值
+	__u8  bmAttributes;			//该设备的属性
+	__u8  bMaxPower;			//设备所需要的电流(单位为2mA)
+};// __attribute__ ((packed));
+
+#define USB_DT_CONFIG_SIZE		9
+/* from config descriptor bmAttributes */
+#define USB_CONFIG_ATT_ONE		(1 << 7)	/* must be set */
+#define USB_CONFIG_ATT_SELFPOWER	(1 << 6)	/* self powered */
+#define USB_CONFIG_ATT_WAKEUP		(1 << 5)	/* can wakeup */
+#define USB_CONFIG_ATT_BATTERY		(1 << 4)	/* battery powered */
+
+/*-------------------------------------------------------------------------*/
+
+/* USB_DT_INTERFACE: Interface descriptor */
+struct usb_interface_descriptor {
+	__u8  bLength;				//该描述符的长度(9字节)
+	__u8  bDescriptorType;		//描述符类型，接口描述符为0x04
+
+	__u8  bInterfaceNumber;		//该接口的编号(从0开始)
+	__u8  bAlternateSetting;	//该接口的备用编号
+	__u8  bNumEndpoints;		//该接口所使用的端点数
+	__u8  bInterfaceClass;		//该接口所使用的类
+	__u8  bInterfaceSubClass;	//该接口所使用的子类
+	__u8  bInterfaceProtocol;	//该接口所使用的协议
+	__u8  iInterface;			//描述该接口的字符串的索引值
+};// __attribute__ ((packed));
+
+#define USB_DT_INTERFACE_SIZE		9
+
+/*-------------------------------------------------------------------------*/
+
+/* USB_DT_ENDPOINT: Endpoint descriptor */
+struct usb_endpoint_descriptor {
+	__u8  bLength;				//该描述符的长度(7字节)
+	__u8  bDescriptorType;		//描述符类型，接口描述符为0x05
+
+	__u8  bEndpointAddress;		//该端点的地址	D7:该端点的传输方向(1:输入 0:输出) D6~D4:保留位 D3~D0:端点号
+	__u8  bmAttributes;			//该端点的属性 D1~D0:传输类型(0:控制传输 1:等时传输 2:批量传输 3:中断传输)，
+								//如果该端点为非等时传输,D7~D2为保留位，设为0
+								//如果该端点为等时传输，D3~D2:同步类型(0:无同步 1:异步 2:适配 3:同步) D5~D4:用途(0:数据端点 1:反馈端点 2:暗含反馈的数据端点 3:保留位) D7~D6为保留位
+	__u16 wMaxPacketSize;		//该端点支持的最大包长度,小端结构(__le16)
+								//对于全速和低速模式，D10~D0表示端点的最大包长
+								//对于高速模式，D12~D10表示每个帧附加的传输次数
+	__u8  bInterval;			//端点的查询时间，对于中断端点，表示查询的帧间隔数
+
+	/* NOTE:  these two are _only_ in audio endpoints. */
+	/* use USB_DT_ENDPOINT*_SIZE in bLength, not sizeof. */
+	//__u8  bRefresh;
+	//__u8  bSynchAddress;
+};// __attribute__ ((packed));
+
+#define USB_DT_ENDPOINT_SIZE		7
+//#define USB_DT_ENDPOINT_AUDIO_SIZE	9	/* Audio extension */
+
+/*-------------------------------------------------------------------------*/
+
+//include/linux/hid.h
+struct hid_class_descriptor {
+	__u8  bDescriptorType;		//下级描述符的类型
+	__u16 wDescriptorLength;	//下级描述符的长度
+};// __attribute__ ((packed));
+
+struct hid_descriptor {
+	__u8  bLength;				//该描述符的长度
+	__u8  bDescriptorType;		//描述符类型，HID描述符为0x21
+	__u16 bcdHID;				//HID协议的版本
+	__u8  bCountryCode;			//设备所使用的国家代码
+	__u8  bNumDescriptors;		//下级描述符的数量
+
+	struct hid_class_descriptor desc[1];
+};// __attribute__ ((packed));
+
+#define USB_DT_HID_SIZE	9
+
+struct UsbMouse_ConfigDescriptor {
+	struct usb_config_descriptor *usb_config_desc;		//配置描述符
+	struct usb_interface_descriptor *usb_interface_desc;	//接口描述符
+	struct hid_descriptor *hid_desc;						//HID描述符
+	struct usb_endpoint_descriptor *usb_endpoint_desc;	//端点描述符
+};
 #endif

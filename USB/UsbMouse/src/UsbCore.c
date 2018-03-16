@@ -3,8 +3,10 @@
 #include "include/uart.h"
 #include "include/usbcore.h"
 #include "include/ch9.h"
+#include <string.h>
 
 idata uint8 Buffer[16];  	//读端点0用的缓冲区
+idata uint8 UsbMouse_ConfigDesc_buf[128];
 uint8 * pSendData;				//当前发送数据的位置
 uint16 SendLength;				//需要发送数据的长度
 //是否需要发送0数据包的标志。在USB控制传输的数据过程中，
@@ -63,9 +65,94 @@ code struct usb_device_descriptor DeviceDescriptor = {
 	1
 };
 
+struct UsbMouse_ConfigDescriptor UsbMouse_ConfigDesc;
 
+code struct usb_config_descriptor usbConfigDescriptor = {
+#if 0
+	.bLength = USB_DT_CONFIG_SIZE,
+	.bDescriptorType = 0x02,
+	.wTotalLength = swab16(???),
+	.bNumInterfaces = 0x01,			//鼠标功能单一只具有一个接口
+	.bConfigurationValue = 0x01,	//该配置的值
+	.iConfiguration = 0x00,			//描述该配置的字符串的索引值
+	.bmAttributes = USB_CONFIG_ATT_ONE,	//该设备的属性,总线供电
+	.bMaxPower = 0x32,					//设备所需要的电流(单位为2mA)，100mA
+#endif
+	USB_DT_CONFIG_SIZE,
+	0x02,
+	swab16(USB_DT_CONFIG_SIZE+USB_DT_INTERFACE_SIZE+USB_DT_HID_SIZE+USB_DT_ENDPOINT_SIZE),//swab16(34),
+	0x01,
+	0x01,
+	0x00,
+	USB_CONFIG_ATT_ONE,
+	0x32,
+};
 
+code struct usb_interface_descriptor usbInterfaceDescriptor = {
+#if 0
+	.bLength = USB_DT_INTERFACE_SIZE,
+	.bDescriptorType = 0x04,
+	.bInterfaceNumber = 0x00,
+	.bAlternateSetting = 0x00,
+	.bNumEndpoints = 0x01;		//非0端点的数目，usb鼠标只需要一个中断输入端点
+	.bInterfaceClass = 0x03,	//该接口所使用的类，usb鼠标是HID类，HID类编码是0x03
+	.bInterfaceSubClass = 0x01,	//该接口所使用的子类，引导启动的子类
+	.bInterfaceProtocol = 0x02,	//该接口所使用的协议,鼠标的代码是0x02
+	.iInterface = 0x00;			//描述该接口的字符串的索引值,没有，为0
+#endif
+	USB_DT_INTERFACE_SIZE,
+	0x04,
+	0x00,
+	0x00,
+	0x01,
+	0x03,
+	0x01,
+	0x02,
+	0x00,
+};
 
+code uint8 ReportDescriptor[]= {0x00};
+
+code struct hid_descriptor HidDescriptor = {
+#if 0
+	.bLength			= 0x09,
+	.bDescriptorType	= 0x21,
+	.bcdHID				= 0x0110,
+	.bCountryCode		= 0x21,//美式
+	.bNumDescriptors	= 0x01,
+	.desc[1].bDescriptorType = 0x22,//下级描述符类型为报告描述符，编号为0x22
+	.desc[1].wDescriptorLength = swab16(sizeof(ReportDescriptor)),
+#endif
+	0x09,
+	0x21,
+	swab16(0x0110),
+	0x21,
+	0x01,
+	0x22,
+	swab16(sizeof(ReportDescriptor)),
+};
+code struct usb_endpoint_descriptor EndpointDescriptor = {
+
+#if 0
+	.bLength = USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType = 0x05,
+
+	.bEndpointAddress = 0x81,		//该端点的地址	D7:该端点的传输方向(1:输入 0:输出) D6~D4:保留位 D3~D0:端点号
+	.bmAttributes = 0x03,			//该端点的属性 D1~D0:传输类型(0:控制传输 1:等时传输 2:批量传输 3:中断传输)，
+								//如果该端点为非等时传输,D7~D2为保留位，设为0
+								//如果该端点为等时传输，D3~D2:同步类型(0:无同步 1:异步 2:适配 3:同步) D5~D4:用途(0:数据端点 1:反馈端点 2:暗含反馈的数据端点 3:保留位) D7~D6为保留位
+	.wMaxPacketSize = 0x0010,		//该端点支持的最大包长度,小端结构(__le16)
+								//对于全速和低速模式，D10~D0表示端点的最大包长
+								//对于高速模式，D12~D10表示每个帧附加的传输次数
+	.bInterval = 0x0a,			//端点的查询时间，对于中断端点，表示查询的帧间隔数
+#endif
+	USB_DT_ENDPOINT_SIZE,
+	0x05,
+	0x81,	//D12 输入端点1
+	0x03,	//中断传输
+	swab16(0x0010),	//端点1的最大包长为16字节
+	0x0a,	//端点查询时间，设置为10个帧时间，即10ms
+};
 
 
 /********************************************************************
@@ -293,10 +380,36 @@ void parse_request(char *Buffer)
 								#ifdef DEBUG0
 								Prints("配置描述符。\r\n");
 								#endif
+
+								UsbMouse_ConfigDesc.usb_config_desc = &usbConfigDescriptor;
+								UsbMouse_ConfigDesc.usb_interface_desc = &usbInterfaceDescriptor;
+								UsbMouse_ConfigDesc.hid_desc = &HidDescriptor;
+								UsbMouse_ConfigDesc.usb_endpoint_desc = &EndpointDescriptor;
+								memcpy(UsbMouse_ConfigDesc_buf,UsbMouse_ConfigDesc.usb_config_desc,USB_DT_CONFIG_SIZE);
+								memcpy(UsbMouse_ConfigDesc_buf+USB_DT_CONFIG_SIZE,UsbMouse_ConfigDesc.usb_interface_desc,USB_DT_INTERFACE_SIZE);
+								memcpy(UsbMouse_ConfigDesc_buf+USB_DT_CONFIG_SIZE+USB_DT_INTERFACE_SIZE,UsbMouse_ConfigDesc.hid_desc,USB_DT_HID_SIZE);
+								memcpy(UsbMouse_ConfigDesc_buf+USB_DT_CONFIG_SIZE+USB_DT_INTERFACE_SIZE+USB_DT_HID_SIZE,UsbMouse_ConfigDesc.usb_endpoint_desc,USB_DT_ENDPOINT_SIZE);
+
+								pSendData = (uint8 *)&UsbMouse_ConfigDesc_buf; //需要发送的数据为配置描述符
+								//判断请求的字节数是否比实际需要发送的字节数多
+								//这里请求的是配置描述符集合，因此数据长度就是
+								//如果请求的比实际的长，那么只返回实际长度的数据
+								SendLength = swab16(UsbMouse_ConfigDesc.usb_config_desc->wTotalLength);
+								//PrintHex(sizeof(UsbMouse_ConfigDesc));
+
+								if(request.wLength > SendLength) {
+									if(SendLength%DeviceDescriptor.bMaxPacketSize0 == 0) {//并且刚好是整数个数据包时
+										NeedZeroPacket = 1; //需要返回0长度的数据包
+									}
+								} else {
+									SendLength = request.wLength;
+								}
+								//将数据通过EP0返回
+								UsbEp0SendData();
 								break;
 							case STRING_DESCRIPTOR:  //字符串描述符
 								#ifdef DEBUG0
-								Prints("字符串描述符");
+								Prints("字符串描述符。\r\n");
 								#endif
 								break;
 							default:  //其它描述符
@@ -434,7 +547,7 @@ void parse_request(char *Buffer)
 void UsbEp0Out(void)
 {
 #ifdef DEBUG0
-	Prints("USB端点0输出中断。Host -> Device\r\n");
+	Prints("USB端点0输出中断。OUT(Host -> Device)\r\n");
 	//读取端点0输出最后传输状态，该操作清除中断标志
 	//并判断第5位是否为1，如果是，则说明是建立包
 	if(D12ReadEndpointLastStatus(0)&0x20)
@@ -464,7 +577,7 @@ void UsbEp0Out(void)
 void UsbEp0In(void)
 {
 #ifdef DEBUG0
-	Prints("USB端点0输入中断。\r\n");
+	Prints("USB端点0输入中断。IN(Device -> Host)\r\n");
 #endif
 	//读最后发送状态，这将清除端点0的中断标志位
 	D12ReadEndpointLastStatus(1);
