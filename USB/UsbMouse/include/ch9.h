@@ -218,4 +218,19 @@ struct UsbMouse_ConfigDescriptor {
 	struct hid_descriptor *hid_desc;						//HID描述符
 	struct usb_endpoint_descriptor *usb_endpoint_desc;	//端点描述符
 };
+
+/*-------------------------------------------------------------------------*/
+
+/* USB_DT_STRING: String descriptor */
+struct usb_string_descriptor {
+	__u8  bLength;
+	__u8  bDescriptorType;
+
+	__u16 wData[1];		/* UTF-16LE encoded */
+};//__attribute__ ((packed));
+
+/* note that "string" zero is special, it holds language codes that
+ * the device supports, not Unicode characters.
+ */
+
 #endif

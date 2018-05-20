@@ -154,6 +154,79 @@ code struct usb_endpoint_descriptor EndpointDescriptor = {
 	0x0a,	//端点查询时间，设置为10个帧时间，即10ms
 };
 
+/************************语言ID的定义********************/
+code uint8 LanguageId[4]=
+{
+	0x04, //本描述符的长度
+	0x03, //字符串描述符
+	//0x0409为美式英语的ID
+	0x09,
+	0x04
+};
+
+//厂商字符串
+//8位小端格式
+code uint8 ManufacturerStringDescriptor[82]={
+	46, 		//该描述符的长度为46字节
+	0x03,		//字符串描述符的类型编码为0x03
+	0x68, 0x00, //h
+	0x74, 0x00, //t
+	0x74, 0x00, //t
+	0x70, 0x00, //p
+	0x3a, 0x00, //:
+	0x2f, 0x00, ///
+	0x2f, 0x00, ///
+	0x77, 0x00, //w
+	0x77, 0x00, //w
+	0x77, 0x00, //w
+	0x2e, 0x00, //.
+	0x6c, 0x00, //l
+	0x69, 0x00, //i
+	0x73, 0x00, //s
+	0x6f, 0x00, //o
+	0x6e, 0x00, //n
+	0x67, 0x00, //g
+	0x7a, 0x00, //z
+	0x65, 0x00, //e
+	0x2e, 0x00, //.
+	0x63, 0x00, //c
+	0x6e, 0x00  //n
+};
+
+//产品字符串 Unicode编码
+//8位小端格式
+code uint8 ProductStringDescriptor[34]={
+	24,         //该描述符的长度为24字节
+	0x03,       //字符串描述符的类型编码为0x03
+	0x75, 0x00, //u
+	0x73, 0x00, //s
+	0x62, 0x00, //b
+	0x20, 0x9f, //鼠
+	0x07, 0x68, //标
+	0x0c, 0xff, //，
+	0x62, 0x00, //b
+	0x79, 0x00, //y
+	0x4e, 0x67, //李
+	0x7e, 0x67, //松
+	0xfd, 0x6c  //泽
+};
+
+//产品序列号字符串 Unicode编码
+//8位小端格式
+code uint8 SerialNumberStringDescriptor[22]={
+	22, 		//该描述符的长度为22字节
+	0x03,		//字符串描述符的类型编码为0x03
+	0x32, 0x00, //2
+	0x30, 0x00, //0
+	0x31, 0x00, //1
+	0x38, 0x00, //8
+	0x2d, 0x00, //-
+	0x30, 0x00, //0
+	0x35, 0x00, //5
+	0x2d, 0x00, //-
+	0x32, 0x00, //2
+	0x30, 0x00  //0
+};
 
 /********************************************************************
 函数功能：延时x毫秒函数。
@@ -411,6 +484,54 @@ void parse_request(char *Buffer)
 								#ifdef DEBUG0
 								Prints("字符串描述符。\r\n");
 								#endif
+								//根据wValue的低字节（索引值）散转
+								switch(request.wValue&0xFF) {
+									case 0:  //获取语言ID
+										#ifdef DEBUG0
+										Prints("(语言ID)。\r\n");
+										#endif
+										pSendData = LanguageId;
+										SendLength = LanguageId[0];
+										break;
+									case 1:  //厂商字符串的索引值为1，所以这里为厂商字符串
+										#ifdef DEBUG0
+										Prints("(厂商描述)。\r\n");
+										#endif
+										pSendData = ManufacturerStringDescriptor;
+										SendLength = ManufacturerStringDescriptor[0];
+										break;
+									 case 2:  //产品字符串的索引值为2，所以这里为产品字符串
+										#ifdef DEBUG0
+										Prints("(产品描述)。\r\n");
+										#endif
+										pSendData = ProductStringDescriptor;
+										//SendLength = ProductStringDescriptor[0];
+										break;
+									case 3:  //产品序列号的索引值为3，所以这里为序列号
+										#ifdef DEBUG0
+										Prints("(产品序列号)。\r\n");
+										#endif
+										pSendData = SerialNumberStringDescriptor;
+										SendLength = SerialNumberStringDescriptor[0];
+										break;
+									default :
+										#ifdef DEBUG0
+										Prints("(未知的索引值)。\r\n");
+										#endif
+										//对于未知索引值的请求，返回一个0长度的包
+										SendLength = 0;
+										NeedZeroPacket = 1;
+										break;
+								}
+								if(request.wLength > SendLength) {
+									if(SendLength%DeviceDescriptor.bMaxPacketSize0 == 0) {//并且刚好是整数个数据包时
+										NeedZeroPacket = 1; //需要返回0长度的数据包
+									}
+								} else {
+									SendLength = request.wLength;
+								}
+								//将数据通过EP0返回
+								UsbEp0SendData();
 								break;
 							default:  //其它描述符
 								#ifdef DEBUG0
