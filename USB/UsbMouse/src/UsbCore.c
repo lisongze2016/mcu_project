@@ -613,6 +613,15 @@ void parse_request(char *Buffer)
 						#ifdef DEBUG0
 						Prints("设置配置。\r\n");
 						#endif
+						//使能非0端点。非0端点只有在设置为非0的配置后才能使能。
+						//wValue的低字节为配置的值，如果该值为非0，才能使能非0端点。
+						//保存当前配置值
+						D12SetEndpointEnable(request.wValue&0xFF);
+						//返回一个0长度的状态数据包
+						SendLength = 0;
+						NeedZeroPacket = 1;
+						//将数据通过EP0返回
+						UsbEp0SendData();
 						break;
 					case USB_REQ_SET_DESCRIPTOR: //设置描述符
 						#ifdef DEBUG0
@@ -643,6 +652,24 @@ void parse_request(char *Buffer)
 				#ifdef DEBUG0
 				Prints("USB类输出请求：");
 				#endif
+				switch(request.bRequest) {
+					case SET_IDLE:
+						#ifdef DEBUG0
+						Prints("设置空闲。\r\n");
+						#endif
+						//只需要返回一个0长度的数据包即可
+						SendLength = 0;
+						NeedZeroPacket = 1;
+						//将数据通过EP0返回
+						UsbEp0SendData();
+						break;
+
+					default:
+						#ifdef DEBUG0
+						Prints("未知请求。\r\n");
+						#endif
+						break;
+				}
 				break;
 			case 2:  //厂商请求
 				#ifdef DEBUG0
