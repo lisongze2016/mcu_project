@@ -16,6 +16,14 @@ uint16 SendLength;				//需要发送数据的长度
 //来结束数据过程。因此这里增加一个标志，供程序决定是否需要返回
 //一个0长度的数据包。
 uint8 NeedZeroPacket;
+//当前的配置值。只有在设置非0配置后
+uint8 ConfigValue;
+
+//端点1缓冲是否忙的标志。当缓冲区中有数据时，该标志为真。
+//当缓冲区中空闲时，该标志为假。
+uint8 Ep1InIsBusy;
+
+
 
 code struct usb_device_descriptor DeviceDescriptor = {
 #if 0
@@ -111,7 +119,50 @@ code struct usb_interface_descriptor usbInterfaceDescriptor = {
 	0x00,
 };
 
-code uint8 ReportDescriptor[]= {0x00};
+/* ReportDescriptor usb hid descriptor tool
+ * +--------+--------+--------+--------+--------+--------+--------+--------+
+ * |  bit7  |  bit6  |  bit5  |  bit4  |  bit3  |  bit2  |  bit1  |  bit0  |
+ * +--------+--------+--------+--------+--------+--------+--------+--------+
+ * |useless |useless |useless |useless |useless |L-Buttom|M-Buttom|R-Buttom|
+ * +--------+--------+--------+--------+--------+--------+--------+--------+
+ * |                                   X                                   |
+ * +--------+--------+--------+--------+--------+--------+--------+--------+
+ * |                                   Y                                   |
+ * +--------+--------+--------+--------+--------+--------+--------+--------+
+ * |                                 Wheel                                 |
+ * +--------+--------+--------+--------+--------+--------+--------+--------+
+ */
+
+code uint8 ReportDescriptor[52] = {
+    0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
+    0x09, 0x02,                    // USAGE (Mouse)
+    0xa1, 0x01,                    // COLLECTION (Application)
+    0x09, 0x01,                    //   USAGE (Pointer)
+    0xa1, 0x00,                    //   COLLECTION (Physical)
+    0x05, 0x09,                    //     USAGE_PAGE (Button)
+    0x19, 0x01,                    //     USAGE_MINIMUM (Button 1)
+    0x29, 0x03,                    //     USAGE_MAXIMUM (Button 3)
+    0x15, 0x00,                    //     LOGICAL_MINIMUM (0)
+    0x25, 0x01,                    //     LOGICAL_MAXIMUM (1)
+    0x95, 0x03,                    //     REPORT_COUNT (3)
+    0x75, 0x01,                    //     REPORT_SIZE (1)
+    0x81, 0x02,                    //     INPUT (Data,Var,Abs)
+    0x95, 0x01,                    //     REPORT_COUNT (1)
+    0x75, 0x05,                    //     REPORT_SIZE (5)
+    0x81, 0x03,                    //     INPUT (Cnst,Var,Abs)
+    0x05, 0x01,                    //     USAGE_PAGE (Generic Desktop)
+    0x09, 0x30,                    //     USAGE (X)
+    0x09, 0x31,                    //     USAGE (Y)
+    0x09, 0x38,                    //     USAGE (Wheel)
+    0x15, 0x81,                    //     LOGICAL_MINIMUM (-127)
+    0x25, 0x7f,                    //     LOGICAL_MAXIMUM (127)
+    0x75, 0x08,                    //     REPORT_SIZE (8)
+    0x95, 0x03,                    //     REPORT_COUNT (3)
+    0x81, 0x06,                    //     INPUT (Data,Var,Rel)
+    0xc0,                          //   END_COLLECTION
+    0xc0                           // END_COLLECTION
+};
+
 
 code struct hid_descriptor HidDescriptor = {
 #if 0
@@ -533,6 +584,24 @@ void parse_request(char *Buffer)
 								//将数据通过EP0返回
 								UsbEp0SendData();
 								break;
+							case REPORT_DESCRIPTOR:  //报告描述符
+								#ifdef DEBUG0
+								Prints("报告描述符。\r\n");
+								#endif
+								pSendData = ReportDescriptor; //需要发送的数据为报告描述符
+								SendLength = sizeof(ReportDescriptor); //需要返回的数据长度
+								//判断请求的字节数是否比实际需要发送的字节数多
+								//如果请求的比实际的长，那么只返回实际长度的数据
+								if(request.wLength > SendLength) {
+									if(SendLength%DeviceDescriptor.bMaxPacketSize0 == 0) {//并且刚好是整数个数据包时
+										NeedZeroPacket = 1; //需要返回0长度的数据包
+									}
+								} else {
+									SendLength = request.wLength;
+								}
+								//将数据通过EP0返回
+								UsbEp0SendData();
+								break;
 							default:  //其它描述符
 								#ifdef DEBUG0
 								Prints("其他描述符，描述符代码：");
@@ -616,7 +685,8 @@ void parse_request(char *Buffer)
 						//使能非0端点。非0端点只有在设置为非0的配置后才能使能。
 						//wValue的低字节为配置的值，如果该值为非0，才能使能非0端点。
 						//保存当前配置值
-						D12SetEndpointEnable(request.wValue&0xFF);
+						ConfigValue = request.wValue&0xFF;
+						D12SetEndpointEnable(ConfigValue);
 						//返回一个0长度的状态数据包
 						SendLength = 0;
 						NeedZeroPacket = 1;
@@ -756,9 +826,13 @@ void UsbEp1Out(void)
 ********************************************************************/
 void UsbEp1In(void)
 {
-#ifdef DEBUG0
- Prints("USB端点1输入中断。\r\n");
-#endif
+	#ifdef DEBUG0
+	Prints("USB端点1输入中断。\r\n");
+	#endif
+	//读最后发送状态，这将清除端点1输入的中断标志位
+	D12ReadEndpointLastStatus(3);
+	//端点1输入处于空闲状态
+	Ep1InIsBusy = 0;
 }
 ////////////////////////End of function//////////////////////////////
 

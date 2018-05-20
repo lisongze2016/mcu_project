@@ -42,46 +42,63 @@ code uint8 HeadTable[][100]={
 ********************************************************************/
 void SendReport(void)
 {
- //我们不需要KEY1~KEY6按键改变的信息，所以先将它们清0
- KeyUp &=~(KEY1|KEY2|KEY3|KEY4|KEY5|KEY6);
- KeyDown &=~(KEY1|KEY2|KEY3|KEY4|KEY5|KEY6);
+	//需要返回的4字节报告的缓冲
+	//Buf[0]的D0就是左键，D1就是右键，D2就是中键（这里没有）
+	//Buf[1]为X轴，Buf[2]为Y轴，Buf[3]为滚轮
+	uint8 Buf[4]={0,0,0,0};
+
+	//我们不需要KEY1~KEY6按键改变的信息，所以先将它们清0
+	KeyUp &=~(KEY1|KEY2|KEY3|KEY4|KEY5|KEY6);
+	KeyDown &=~(KEY1|KEY2|KEY3|KEY4|KEY5|KEY6);
  
- //如果有按键按住，并且不是KEY7、KEY8（左、右键）
- //或者KEY7、KEY8任何一个键有变动的话，则需要返回报告
- if((KeyPress&(~(KEY7|KEY8)))||KeyUp||KeyDown)
- {
+	//如果有按键按住，并且不是KEY7、KEY8（左、右键）
+	//或者KEY7、KEY8任何一个键有变动的话，则需要返回报告
+	if((KeyPress&(~(KEY7|KEY8)))||KeyUp||KeyDown)
+	{
 		if(KeyPress & KEY1) //如果KEY1按住，则光标需要左移，即X轴为负值。
 		{
 			Prints("key1 按下，光标左移\r\n");
+			Buf[1] = -5;  //这里一次往左移动一个单位。
 		}
 		if(KeyPress & KEY2) //如果KEY2按住，则光标需要右移，即X轴为正值。
 		{
 			Prints("key2 按下，光标右移\r\n");
+			Buf[1] = 5;   //这里一次往右移动一个单位。
 		}
 		if(KeyPress & KEY3) //如果KEY3按住，则光标需要上移，即Y轴为负值。
 		{
 			Prints("key3 按下，光标上移\r\n");
+			Buf[2] = -5;   //这里一次往上移动一个单位。
 		}
 		if(KeyPress & KEY4)  //如果KEY4按住，则光标需要下移，即Y轴为正值。
 		{
 			Prints("key4 按下，光标下移\r\n");
+			Buf[2] = 5;  //这里一次往下移动一个单位。
 		}
 		if(KeyPress & KEY5)  //如果KEY5按住，则滚轮下滚，即滚轮值为负。
 		{
 			Prints("key5 按下，光标下滚\r\n");
+			Buf[3] = -1;  //这里一次往下滚动一个单位。
 		}
 		if(KeyPress & KEY6)  //如果KEY6按住，则滚轮上滚，既滚轮值为正
 		{
 			Prints("key6 按下，光标上滚\r\n");
+			 Buf[3] = 1;   //这里一次往上滚动一个单位。
 		}
 		if(KeyPress & KEY7)  //鼠标左键
 		{
 			Prints("key7 按下，鼠标左键\r\n");
+			Buf[0] |= 0x01;  //D0为鼠标左键
 		}
 		if(KeyPress & KEY8)  //鼠标右键
 		{
 			Prints("key8 按下，鼠标右键\r\n");
+			Buf[0] |= 0x02;  //D1为鼠标右键
 		}
+
+		//报告准备好了，通过端点1返回，长度为4字节。
+		D12WriteEndpointBuffer(3,4,Buf);
+		Ep1InIsBusy=1;  //设置端点忙标志。
  }
 	//记得清除KeyUp和KeyDown
 	KeyUp=0;
@@ -152,13 +169,19 @@ void main(void)
 
 	UsbDisconnect();			//先断开USB连接
 	UsbConnect();					//将USB连接上
-	while(1)
-	{
-		if(D12GetIntPin() == 0) //如果有中断发生 低电平有效
-		{
+	while(1) {
+		if(D12GetIntPin() == 0) {//如果有中断发生 低电平有效
 			PDIUSBD12_interrupt_handle();
 		}
-		LEDs=~KeyPress;  //利用板上8个LED显示按键状态，按下时亮
-		SendReport();
+		if(ConfigValue != 0) {//如果已经设置为非0的配置，则可以返回报告数据
+			LEDs = ~KeyPress;  //利用板上8个LED显示按键状态，按下时亮
+			if(!Ep1InIsBusy) { //如果端点1输入没有处于忙状态，则可以发送数据
+				KeyCanChange=0;  //禁止按键扫描
+				if(KeyUp||KeyDown||KeyPress) {//如果有按键事件发生
+					SendReport();  //则返回报告
+				}
+				KeyCanChange = 1;  //允许按键扫描
+			}
+		}
 	}
 }
