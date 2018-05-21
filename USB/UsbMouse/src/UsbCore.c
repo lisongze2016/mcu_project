@@ -556,7 +556,7 @@ void parse_request(char *Buffer)
 										Prints("(产品描述)。\r\n");
 										#endif
 										pSendData = ProductStringDescriptor;
-										//SendLength = ProductStringDescriptor[0];
+										SendLength = ProductStringDescriptor[0];
 										break;
 									case 3:  //产品序列号的索引值为3，所以这里为序列号
 										#ifdef DEBUG0

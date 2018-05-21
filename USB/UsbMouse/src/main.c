@@ -25,7 +25,8 @@ code uint8 HeadTable[][100]={
 "******                   建立时间：",__TIME__,"                   ******\r\n",
 "******                    作者：lisongze                      ******\r\n",
 "******                    欢迎访问作者的                      ******\r\n",
-"******      BLOG：http://blog.csdn.net/songze_lee             ******\r\n",
+"******      BLOG：http://www.lisongze.cn                      ******\r\n",
+"******      CSDN BLOG：http://blog.csdn.net/songze_lee        ******\r\n",
 "******      说明：优化电脑圈圈的USB鼠标                       ******\r\n",
 "******                  请按K1-K8分别进行测试                 ******\r\n",
 "******    K1:光标左移  K2:光标右移  K3:光标上移 K4:光标下移   ******\r\n",
@@ -111,7 +112,7 @@ void display_info(void)
 {
 	int i;
 
-	for(i = 0; i < 17; i++)
+	for(i = 0; i < 18; i++)
 	{
 		Prints(HeadTable[i]);
 	}
